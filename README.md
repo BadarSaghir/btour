@@ -1388,7 +1388,7 @@ class TourCard extends StatelessWidget {
 
     // Get provider but don't listen here to avoid rebuilding the whole list card constantly
     final tourProvider = Provider.of<TourProvider>(context, listen: false);
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹'); // Example INR
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$"); // Example INR
 
     return Card(
       clipBehavior: Clip.antiAlias, // Ensures inkwell ripple stays within bounds
@@ -1777,7 +1777,7 @@ class _AddEditTourScreenState extends State<AddEditTourScreen> {
                     TextFormField(
                       controller: _advanceAmountController,
                       decoration: const InputDecoration(
-                          labelText: 'Advance Amount', prefixText: '₹ '),
+                          labelText: 'Advance Amount', prefixText: "\$"),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -2085,7 +2085,7 @@ class TourDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final tourProvider = Provider.of<TourProvider>(context);
     final tour = tourProvider.currentTour;
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
 
     if (tourProvider.isLoading && tour == null) {
       return Scaffold(
@@ -2488,7 +2488,7 @@ class ExpenseListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
     final tourProvider = Provider.of<TourProvider>(context, listen: false); // Don't need to listen
 
     // Fetch category name - ideally, Category should be part of Expense object or fetched efficiently
@@ -2865,7 +2865,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy-MM-dd');
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
     final tourProvider = Provider.of<TourProvider>(context, listen: false); // For lookups
 
     return Scaffold(
@@ -2930,7 +2930,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                     TextFormField(
                       controller: _amountController,
                       decoration: const InputDecoration(
-                          labelText: 'Amount', prefixText: '₹ '),
+                          labelText: 'Amount', prefixText: "\$"),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                        onChanged: (value) {
                           // If payments haven't been manually edited yet, update default payment
@@ -3029,7 +3029,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                                                       key: ValueKey('payment_${person.id}'),
                                                       initialValue: payment.amountPaid.toStringAsFixed(2),
                                                       decoration: const InputDecoration(
-                                                          prefixText: '₹ ',
+                                                          prefixText: "\$",
                                                           border: OutlineInputBorder(),
                                                           contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                                                           isDense: true,

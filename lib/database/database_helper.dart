@@ -7,6 +7,9 @@ import 'package:btour/models/tour.dart';
 import 'package:btour/models/category.dart'; // Need category model
 
 class DatabaseHelper {
+  static const _dbName = 'tourExpenseApp.db';
+  static const _dbVersion = 2; // <<<<<<<<<<<< INCREMENT DB VERSION
+
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
 

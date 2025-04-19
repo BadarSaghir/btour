@@ -24,7 +24,7 @@ class ExpenseListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
     // REMOVED: Internal provider lookup
     // final tourProvider = context.read<TourProvider>();
     // final categoryName = tourProvider.getCategoryNameById(expense.categoryId);

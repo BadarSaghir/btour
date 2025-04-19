@@ -495,7 +495,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
               (ctx) => AlertDialog(
                 title: const Text('Payment Mismatch'),
                 content: Text(
-                  'The sum of individual payments (${NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(totalPaid)}) does not match the total expense amount (${NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(totalAmount)}). \n\nSave anyway? The total amount (${NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(totalAmount)}) will be recorded as the expense cost.',
+                  'The sum of individual payments (${NumberFormat.currency(locale: 'en_US', symbol: '"\$"').format(totalPaid)}) does not match the total expense amount (${NumberFormat.currency(locale: 'en_US', symbol: "\$").format(totalAmount)}). \n\nSave anyway? The total amount (${NumberFormat.currency(locale: 'en_US', symbol: '"\$"').format(totalAmount)}) will be recorded as the expense cost.',
                 ),
                 actions: [
                   TextButton(
@@ -601,7 +601,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy-MM-dd');
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
 
     final double currentPaymentSum = _paymentAmounts.values.fold(
       0.0,
@@ -697,7 +697,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                         controller: _amountController,
                         decoration: const InputDecoration(
                           labelText: 'Total Amount *',
-                          prefixText: '₹ ',
+                          prefixText: "\$",
                           border: OutlineInputBorder(),
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
@@ -863,7 +863,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                                       key: ValueKey('payment_${person.id}'),
                                       controller: paymentController,
                                       decoration: const InputDecoration(
-                                        prefixText: '₹ ',
+                                        prefixText: "\$",
                                         border: OutlineInputBorder(),
                                         contentPadding: EdgeInsets.symmetric(
                                           horizontal: 8,

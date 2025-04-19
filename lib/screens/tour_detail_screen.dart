@@ -17,7 +17,7 @@ class TourDetailScreen extends StatelessWidget {
     // Listen to provider changes to update the UI
     final tourProvider = Provider.of<TourProvider>(context);
     final tour = tourProvider.currentTour; // Get the currently loaded tour
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
 
     // Handle loading state managed by the provider
     if (tourProvider.isLoading && tour == null) {

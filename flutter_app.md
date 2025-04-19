@@ -1375,7 +1375,7 @@ class TourCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use provider for lookups but don't need to listen here
     final tourProvider = Provider.of<TourProvider>(context, listen: false);
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹'); // Example INR
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$"); // Example INR
 
     return Card(
       clipBehavior: Clip.antiAlias, // Ensures inkwell ripple stays within bounds
@@ -1826,7 +1826,7 @@ class _AddEditTourScreenState extends State<AddEditTourScreen> {
                     TextFormField(
                       controller: _advanceAmountController,
                       decoration: const InputDecoration(
-                          labelText: 'Advance Amount *', prefixText: '₹ '),
+                          labelText: 'Advance Amount *', prefixText: "\$"),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -2239,7 +2239,7 @@ class TourDetailScreen extends StatelessWidget {
     // Listen to provider changes to update the UI
     final tourProvider = Provider.of<TourProvider>(context);
     final tour = tourProvider.currentTour; // Get the currently loaded tour
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
 
     // Handle loading state managed by the provider
     if (tourProvider.isLoading && tour == null) {
@@ -2848,7 +2848,7 @@ class ExpenseListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
     // Use read to get provider without listening - safe within build method for lookups
     final tourProvider = context.read<TourProvider>();
 
@@ -3250,7 +3250,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                    title: const Text('Payment Mismatch'),
-                   content: Text('The sum of individual payments (${NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(totalPaid)}) does not match the total expense amount (${NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(totalAmount)}). \n\nSave anyway? The total amount ($totalAmount) will be deducted from the tour advance.'),
+                   content: Text('The sum of individual payments (${NumberFormat.currency(locale: 'en_US', symbol: "\$").format(totalPaid)}) does not match the total expense amount (${NumberFormat.currency(locale: 'en_US', symbol: "\$").format(totalAmount)}). \n\nSave anyway? The total amount ($totalAmount) will be deducted from the tour advance.'),
                    actions: [
                       TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
                       TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Save Anyway')),
@@ -3323,7 +3323,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy-MM-dd');
-    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
 
     return Scaffold(
       appBar: AppBar(
@@ -3387,7 +3387,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                     TextFormField(
                       controller: _amountController,
                       decoration: const InputDecoration(
-                          labelText: 'Total Amount *', prefixText: '₹ '),
+                          labelText: 'Total Amount *', prefixText: "\$"),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       // Listener handles default payment update
                       validator: (value) {
@@ -3489,7 +3489,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                                                       key: ValueKey('payment_${person.id}'), // Ensure state is kept
                                                       controller: paymentController, // Use the dedicated controller
                                                       decoration: const InputDecoration(
-                                                          prefixText: '₹ ',
+                                                          prefixText: "\$",
                                                           border: OutlineInputBorder(),
                                                           contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                                                           isDense: true,
