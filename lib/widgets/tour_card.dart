@@ -14,10 +14,7 @@ class TourCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use provider for lookups but don't need to listen here
     final tourProvider = Provider.of<TourProvider>(context, listen: false);
-    final currencyFormat = NumberFormat.currency(
-      locale: 'en_IN',
-      symbol: '₹',
-    ); // Example INR
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: '\$');
 
     return Card(
       clipBehavior:
