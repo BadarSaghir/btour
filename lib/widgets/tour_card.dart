@@ -16,7 +16,7 @@ class TourCard extends StatelessWidget {
     final tourProvider = Provider.of<TourProvider>(context, listen: false);
     final currencyFormat = NumberFormat.currency(
       locale: 'en_US',
-      symbol: '"\$"',
+      symbol: "\$",
     );
 
     return Card(

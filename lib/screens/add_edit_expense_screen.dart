@@ -495,7 +495,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
               (ctx) => AlertDialog(
                 title: const Text('Payment Mismatch'),
                 content: Text(
-                  'The sum of individual payments (${NumberFormat.currency(locale: 'en_US', symbol: '"\$"').format(totalPaid)}) does not match the total expense amount (${NumberFormat.currency(locale: 'en_US', symbol: "\$").format(totalAmount)}). \n\nSave anyway? The total amount (${NumberFormat.currency(locale: 'en_US', symbol: '"\$"').format(totalAmount)}) will be recorded as the expense cost.',
+                  'The sum of individual payments (${NumberFormat.currency(locale: 'en_US', symbol: "\$").format(totalPaid)}) does not match the total expense amount (${NumberFormat.currency(locale: 'en_US', symbol: "\$").format(totalAmount)}). \n\nSave anyway? The total amount (${NumberFormat.currency(locale: 'en_US', symbol: "\$").format(totalAmount)}) will be recorded as the expense cost.',
                 ),
                 actions: [
                   TextButton(

@@ -397,7 +397,7 @@ class _AddEditTourScreenState extends State<AddEditTourScreen> {
                         controller: _advanceAmountController,
                         decoration: const InputDecoration(
                           labelText: 'Advance Amount *',
-                          prefixText: '"\$" ',
+                          prefixText: "\$",
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
