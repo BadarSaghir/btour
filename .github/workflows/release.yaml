@@ -1,0 +1,153 @@
+name: Build & Release Flutter App
+
+# Trigger the workflow when a tag starting with 'v' (e.g., v1.0.0, v2.3.4-beta) is pushed
+on:
+  push:
+    tags:
+      - 'v*' # Matches v followed by anything
+
+jobs:
+  build_and_release:
+    # Use macOS runner because it's required for iOS and macOS builds,
+    # and can also build for Android, Linux, and Windows.
+    runs-on: macos-latest
+    steps:
+      # 1. Checkout Code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Java (for Android)
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin' # Popular open-source JDK distribution
+          java-version: '17'
+
+      # 3. Set up Ruby and Bundler (for iOS/macOS potentially using CocoaPods/Fastlane)
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0' # Adjust if needed, check Flutter/CocoaPods requirements
+          bundler-cache: true # Installs/caches Bundler dependencies if a Gemfile exists
+
+      # 4. Set up Flutter SDK with caching
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable' # Use the stable channel
+          cache: true # Enable Flutter dependency caching
+
+      # 5. Enable Web and Desktop support (if not default)
+      # Uncomment if needed, run flutter config locally first is preferred
+      # - name: Enable Desktop Support
+      #   run: |
+      #     flutter config --enable-linux-desktop
+      #     flutter config --enable-macos-desktop
+      #     flutter config --enable-windows-desktop
+
+      # 6. Install Flutter dependencies
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      # 7. Get Version from Tag
+      # Extracts the tag name (e.g., v1.0.0) without the 'refs/tags/' prefix
+      - name: Get version tag
+        id: tag
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      # ------------------ BUILD STEPS ------------------
+
+      # 8. Build Android APK (Release)
+      - name: Build Android APK
+        run: flutter build apk --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
+        # build-number uses timestamp for uniqueness, adjust if you have a different scheme
+
+      # 9. Build Android App Bundle (AAB - Release)
+      - name: Build Android App Bundle (AAB)
+        run: flutter build appbundle --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
+
+      # 10. Build iOS IPA (Release) - COMPLEX PART
+      - name: Decode & Install iOS Certificate
+        # Creates a temporary keychain, imports the .p12 file from secrets
+        run: |
+          echo "${{ secrets.IOS_P12_CERTIFICATE_BASE64 }}" | base64 --decode > certificate.p12
+          security create-keychain -p "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" build.keychain
+          security import certificate.p12 -k build.keychain -P "${{ secrets.IOS_P12_PASSWORD }}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" build.keychain > /dev/null
+          rm certificate.p12
+      - name: Decode & Install iOS Provisioning Profile
+        # Installs the .mobileprovision file from secrets
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > profile.mobileprovision
+          uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< $(security cms -D -i profile.mobileprovision))
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$uuid.mobileprovision
+          rm profile.mobileprovision
+      - name: Build iOS IPA
+        # Assumes ExportOptions.plist is in ios/ or root. Adjust path if needed.
+        # Ensure you have the correct secrets configured in GitHub.
+        run: flutter build ipa --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s) --export-options-plist=ios/ExportOptions.plist # Or ExportOptions.plist
+      # Clean up keychain after build (optional but good practice)
+      - name: Clean up iOS Keychain
+        if: always() # Run even if previous steps fail
+        run: security delete-keychain build.keychain
+
+      # 11. Build Linux (Release)
+      - name: Build Linux Release
+        run: flutter build linux --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
+      # Package Linux build into a zip
+      - name: Package Linux Release
+        run: |
+          cd build/linux/x64/release/bundle
+          zip -r ../../../../btour-linux-${{ steps.tag.outputs.version }}.zip .
+          cd ../../../../.. # Return to project root
+
+      # 12. Build macOS (Release)
+      - name: Build macOS Release
+        run: flutter build macos --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
+      # Package macOS build into a zip
+      - name: Package macOS Release
+        # Note: App name might vary based on your project settings
+        # Adjust 'YourAppName.app' if necessary. Check build/macos/Build/Products/Release/
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../btour-macos-${{ steps.tag.outputs.version }}.zip *.app
+          cd ../../../../.. # Return to project root
+
+      # 13. Build Windows (Release)
+      - name: Build Windows Release
+        run: flutter build windows --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
+      # Package Windows build into a zip
+      - name: Package Windows Release
+        run: |
+          cd build/windows/runner/Release
+          zip -r ../../../../btour-windows-${{ steps.tag.outputs.version }}.zip .
+          cd ../../../../.. # Return to project root
+
+
+      # ------------------ RELEASE STEP ------------------
+
+      # 14. Create GitHub Release and Upload Artifacts
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1 # Uses a popular action for creating releases
+        with:
+          # Define artifacts to upload (use paths relative to workspace root)
+          artifacts: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+            build/ios/ipa/*.ipa
+            btour-linux-${{ steps.tag.outputs.version }}.zip
+            btour-macos-${{ steps.tag.outputs.version }}.zip
+            btour-windows-${{ steps.tag.outputs.version }}.zip
+          # Uses the tag that triggered the workflow
+          tag: ${{ github.ref_name }}
+          # Creates a release name like "Release v1.0.0"
+          name: Release ${{ github.ref_name }}
+          # Automatically generate release notes from merged PRs (optional)
+          generateReleaseNotes: true
+          # Mark as a full release (not pre-release)
+          prerelease: false
+          # Use the default GITHUB_TOKEN for authentication
+          token: ${{ secrets.GITHUB_TOKEN }}
