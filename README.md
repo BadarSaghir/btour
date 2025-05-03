@@ -53,35 +53,5 @@
     *   Forms for creating/editing Tours and Expenses.
     *   Use appropriate widgets for selection (Dropdowns, Autocomplete, Date Pickers, Chips).
 
-9.  **Automation (Node.js Script):**
-    *   A script that reads the Flutter code provided within Markdown code blocks.
-    *   Identifies target file paths (using a convention like `// FILE: path/to/your/file.dart` on the first line of the code block).
-    *   Creates necessary directories.
-    *   Writes the code content into the specified files.
-
----
-
-Now, let's structure the Flutter application and provide the code.
-
-**Project Setup:**
-
-1.  Create a new Flutter project: `flutter create tour_expense_app`
-2.  Open the project in your IDE (like VS Code).
-3.  Add dependencies to `pubspec.yaml`:
-    ```yaml
-    dependencies:
-      flutter:
-        sdk: flutter
-      sqflite: ^2.3.0 # Check for latest version
-      path: ^1.8.3   # Usually included with flutter, but good to be explicit
-      intl: ^0.18.1  # For date formatting (check latest)
-      provider: ^6.1.1 # Simple state management (optional but recommended)
-
-    dev_dependencies:
-      flutter_test:
-        sdk: flutter
-      flutter_lints: ^2.0.0 # Or newer
-    ```
-4.  Run `flutter pub get`.
 
 ---
