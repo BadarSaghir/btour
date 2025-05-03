@@ -10,7 +10,7 @@ jobs:
   build_macos_android:
     runs-on: macos-latest
     outputs:
-      tag_version: ${{ steps.tag.outputs.version }} # Still output tag for release name/build name
+      tag_version: ${{ steps.tag.outputs.version }} # Output tag for other jobs
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,11 +29,6 @@ jobs:
         id: tag
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      # --- Build Android ---
-      - name: Build Android APK
-        run: flutter build apk --release --build-name=${{ steps.tag.outputs.version }} --build-number=${{ github.run_number }}
-      - name: Build Android App Bundle (AAB)
-        run: flutter build appbundle --release --build-name=${{ steps.tag.outputs.version }} --build-number=${{ github.run_number }}
 
       # --- Build macOS ---
       - name: Enable macOS Desktop Support
@@ -43,9 +38,15 @@ jobs:
       - name: Package macOS Release
         run: |
           cd build/macos/Build/Products/Release
-          # Use fixed filename without version
+          # Ensure 'btour.app' matches your actual app name
           zip -r ../../../../btour-macos.zip btour.app
           cd ../../../../..
+
+      # --- Build Android ---
+      - name: Build Android APK
+        run: flutter build apk --release --build-name=${{ steps.tag.outputs.version }} --build-number=${{ github.run_number }}
+      - name: Build Android App Bundle (AAB)
+        run: flutter build appbundle --release --build-name=${{ steps.tag.outputs.version }} --build-number=${{ github.run_number }}
 
       # --- Upload macOS/Android Artifacts ---
       - name: Upload Android APK Artifact
@@ -56,12 +57,12 @@ jobs:
         with: { name: android-aab, path: build/app/outputs/bundle/release/app-release.aab }
       - name: Upload macOS ZIP Artifact
         uses: actions/upload-artifact@v4
-        # Upload using the fixed filename
         with: { name: macos-app, path: btour-macos.zip }
 
   # --- Job specifically for Linux build ---
   build_linux:
     runs-on: ubuntu-latest
+    needs: build_macos_android # Add needs to get tag_version output
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -79,23 +80,23 @@ jobs:
       - name: Run Flutter Doctor for Linux
         run: flutter doctor -v
       - name: Build Linux Release
+        # Use version from needs context
         run: flutter build linux --release --build-name=${{ needs.build_macos_android.outputs.tag_version }} --build-number=${{ github.run_number }}
       - name: List Build Output Contents
         run: ls -la build/linux/x64/release/bundle/
       - name: Package Linux Build
         run: |
           cd build/linux/x64/release/bundle
-          # Use fixed filename without version
           zip -r ../../../../btour-linux.zip .
           cd ../../../../..
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
-        # Upload using the fixed filename
         with: { name: linux-app, path: btour-linux.zip }
 
   # --- Job specifically for Windows build ---
   build_windows:
     runs-on: windows-latest
+    needs: build_macos_android # Add needs to get tag_version output
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -109,15 +110,20 @@ jobs:
       - name: Run Flutter Doctor for Windows
         run: flutter doctor -v
       - name: Build Windows Release
+        # Use version from needs context
         run: flutter build windows --release --build-name=${{ needs.build_macos_android.outputs.tag_version }} --build-number=${{ github.run_number }}
+
+      # ****** CORRECTED PATHS BELOW ******
       - name: List Build Output Contents
-        run: Get-ChildItem -Path build\windows\runner\Release\ -Recurse
+        # Look inside the x64 directory
+        run: Get-ChildItem -Path build\windows\x64\runner\Release\ -Recurse
       - name: Package Windows Build
-        # Use fixed filename without version
-        run: Compress-Archive -Path build\windows\runner\Release\* -DestinationPath btour-windows.zip -Force
+        # Use the correct path including x64
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath btour-windows.zip -Force
+      # ****** END OF CORRECTIONS ******
+
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
-        # Upload using the fixed filename
         with: { name: windows-app, path: btour-windows.zip }
 
   # --- Job to create the Release (runs after ALL builds) ---
@@ -125,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build_macos_android, build_linux, build_windows]
     steps:
-      # Get version tag from needs
+      # Get version tag using needs context
       - name: Get version tag from needs
         id: tag
         run: echo "version=${{needs.build_macos_android.outputs.tag_version}}" >> $GITHUB_OUTPUT
@@ -139,8 +145,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ needs.build_macos_android.outputs.tag_version }}
-          name: Release ${{ needs.build_macos_android.outputs.tag_version }}
+          tag_name: ${{ needs.build_macos_android.outputs.tag_version }} # Use tag from needs
+          name: Release ${{ needs.build_macos_android.outputs.tag_version }} # Use tag from needs
           body: |
             Multi-platform release for version ${{ needs.build_macos_android.outputs.tag_version }}
             Includes builds for:
@@ -148,7 +154,6 @@ jobs:
             - macOS
             - Linux
             - Windows
-          # Update file paths to match the fixed artifact names
           files: |
             android-apk/app-release.apk
             android-aab/app-release.aab
