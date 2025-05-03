@@ -66,34 +66,6 @@ jobs:
       - name: Build Android App Bundle (AAB)
         run: flutter build appbundle --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
 
-      # 10. Build iOS IPA (Release) - COMPLEX PART
-      - name: Decode & Install iOS Certificate
-        # Creates a temporary keychain, imports the .p12 file from secrets
-        run: |
-          echo "${{ secrets.IOS_P12_CERTIFICATE_BASE64 }}" | base64 --decode > certificate.p12
-          security create-keychain -p "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" build.keychain
-          security import certificate.p12 -k build.keychain -P "${{ secrets.IOS_P12_PASSWORD }}" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" build.keychain > /dev/null
-          rm certificate.p12
-      - name: Decode & Install iOS Provisioning Profile
-        # Installs the .mobileprovision file from secrets
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > profile.mobileprovision
-          uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< $(security cms -D -i profile.mobileprovision))
-          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$uuid.mobileprovision
-          rm profile.mobileprovision
-      - name: Build iOS IPA
-        # Assumes ExportOptions.plist is in ios/ or root. Adjust path if needed.
-        # Ensure you have the correct secrets configured in GitHub.
-        run: flutter build ipa --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s) --export-options-plist=ios/ExportOptions.plist # Or ExportOptions.plist
-      # Clean up keychain after build (optional but good practice)
-      - name: Clean up iOS Keychain
-        if: always() # Run even if previous steps fail
-        run: security delete-keychain build.keychain
-
       # 11. Build Linux (Release)
       - name: Build Linux Release
         run: flutter build linux --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
@@ -104,17 +76,6 @@ jobs:
           zip -r ../../../../btour-linux-${{ steps.tag.outputs.version }}.zip .
           cd ../../../../.. # Return to project root
 
-      # 12. Build macOS (Release)
-      - name: Build macOS Release
-        run: flutter build macos --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
-      # Package macOS build into a zip
-      - name: Package macOS Release
-        # Note: App name might vary based on your project settings
-        # Adjust 'YourAppName.app' if necessary. Check build/macos/Build/Products/Release/
-        run: |
-          cd build/macos/Build/Products/Release
-          zip -r ../../../../btour-macos-${{ steps.tag.outputs.version }}.zip *.app
-          cd ../../../../.. # Return to project root
 
       # 13. Build Windows (Release)
       - name: Build Windows Release
@@ -137,9 +98,7 @@ jobs:
           artifacts: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
-            build/ios/ipa/*.ipa
             btour-linux-${{ steps.tag.outputs.version }}.zip
-            btour-macos-${{ steps.tag.outputs.version }}.zip
             btour-windows-${{ steps.tag.outputs.version }}.zip
           # Uses the tag that triggered the workflow
           tag: ${{ github.ref_name }}
