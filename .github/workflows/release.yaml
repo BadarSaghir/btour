@@ -1,124 +1,174 @@
-name: Build & Release Flutter App
+name: Build & Release Flutter App (No iOS)
 
-# Trigger the workflow when a tag starting with 'v' (e.g., v1.0.0, v2.3.4-beta) is pushed
 on:
   push:
     tags:
       - 'v*' # Matches v followed by anything
 
 jobs:
-  build_and_release:
-    # Use macOS runner because it's required for iOS and macOS builds,
-    # and can also build for Android, Linux, and Windows.
+  # --- Job for macOS and Android (built on macOS runner) ---
+  build_macos_android:
     runs-on: macos-latest
+    outputs:
+       tag_version: ${{ steps.tag.outputs.version }}
     steps:
-      # 1. Checkout Code
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # 2. Set up Java (for Android)
-      - name: Set up Java JDK 17
+      - name: Set up Java JDK 17 # For Android
         uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin' # Popular open-source JDK distribution
-          java-version: '17'
-
-      # 3. Set up Ruby and Bundler (for iOS/macOS potentially using CocoaPods/Fastlane)
-      - name: Set up Ruby
+        with: { distribution: 'temurin', java-version: '17' }
+      - name: Set up Ruby # Might be needed for macOS build tools/CocoaPods
         uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.0' # Adjust if needed, check Flutter/CocoaPods requirements
-          bundler-cache: true # Installs/caches Bundler dependencies if a Gemfile exists
-
-      # 4. Set up Flutter SDK with caching
+        with: { ruby-version: '3.0', bundler-cache: true }
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable' # Use the stable channel
-          cache: true # Enable Flutter dependency caching
-
-      # 5. Enable Web and Desktop support (if not default)
-      # Uncomment if needed, run flutter config locally first is preferred
-      # - name: Enable Desktop Support
-      #   run: |
-      #     flutter config --enable-linux-desktop
-      #     flutter config --enable-macos-desktop
-      #     flutter config --enable-windows-desktop
-
-      # 6. Install Flutter dependencies
+        with: { channel: 'stable', cache: true }
       - name: Install Flutter dependencies
         run: flutter pub get
-
-      # 7. Get Version from Tag
-      # Extracts the tag name (e.g., v1.0.0) without the 'refs/tags/' prefix
       - name: Get version tag
         id: tag
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      # ------------------ BUILD STEPS ------------------
-
-      # 8. Build Android APK (Release)
+      # --- Build Android ---
       - name: Build Android APK
         run: flutter build apk --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
-        # build-number uses timestamp for uniqueness, adjust if you have a different scheme
-
-      # 9. Build Android App Bundle (AAB - Release)
       - name: Build Android App Bundle (AAB)
         run: flutter build appbundle --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
 
-      # 11. Build Linux (Release)
+      # --- Build macOS ---
+      - name: Enable macOS Desktop Support
+        run: flutter config --enable-macos-desktop
+      - name: Build macOS Release
+        run: flutter build macos --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
+      - name: Package macOS Release
+        run: |
+          cd build/macos/Build/Products/Release
+          # Ensure 'btour.app' matches your actual app name if different
+          zip -r ../../../../btour-macos-${{ steps.tag.outputs.version }}.zip btour.app
+          cd ../../../../..
+
+      # --- Upload macOS/Android Artifacts ---
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with: { name: apk-artifact, path: build/app/outputs/flutter-apk/app-release.apk }
+      - name: Upload Android AAB Artifact
+        uses: actions/upload-artifact@v4
+        with: { name: aab-artifact, path: build/app/outputs/bundle/release/app-release.aab }
+      - name: Upload macOS ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with: { name: macos-zip-artifact, path: btour-macos-${{ steps.tag.outputs.version }}.zip }
+
+  # --- Job specifically for Linux build ---
+  build_linux:
+    runs-on: ubuntu-latest
+    # No 'needs' required if getting tag directly from ref
+    outputs:
+       tag_version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with: { channel: 'stable', cache: true }
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - name: Enable Linux Desktop Support
+        run: flutter config --enable-linux-desktop
+      - name: Install Flutter dependencies
+        run: flutter pub get
+      - name: Get version tag
+        id: tag
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - name: Run Flutter Doctor for Linux
+        run: flutter doctor -v
       - name: Build Linux Release
         run: flutter build linux --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
-      # Package Linux build into a zip
       - name: Package Linux Release
         run: |
           cd build/linux/x64/release/bundle
           zip -r ../../../../btour-linux-${{ steps.tag.outputs.version }}.zip .
-          cd ../../../../.. # Return to project root
+          cd ../../../../..
+      - name: Upload Linux ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with: { name: linux-zip-artifact, path: btour-linux-${{ steps.tag.outputs.version }}.zip }
 
-      # 12. Build macOS (Release)
-      - name: Build macOS Release
-        run: flutter build macos --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
-      # Package macOS build into a zip
-      - name: Package macOS Release
-        # Note: App name might vary based on your project settings
-        # Adjust 'YourAppName.app' if necessary. Check build/macos/Build/Products/Release/
-        run: |
-          cd build/macos/Build/Products/Release
-          zip -r ../../../../btour-macos-${{ steps.tag.outputs.version }}.zip *.app
-          cd ../../../../.. # Return to project root
+  # --- Job specifically for Windows build ---
+  build_windows:
+    runs-on: windows-latest
+    # No 'needs' required if getting tag directly from ref
+    outputs:
+       tag_version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with: { channel: 'stable', cache: true }
 
-      # 13. Build Windows (Release)
+      # Enable Windows Desktop Support (Crucial!)
+      - name: Enable Windows Desktop Support
+        run: flutter config --enable-windows-desktop
+
+      # Install Flutter dependencies (might need to happen after enabling)
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Get version tag
+        id: tag
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $env:GITHUB_OUTPUT # PowerShell syntax for output
+
+      # Run flutter doctor (Checks for Visual Studio)
+      - name: Run Flutter Doctor for Windows
+        run: flutter doctor -v
+
+      # Build Windows
       - name: Build Windows Release
-        run: flutter build windows --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
+        # Use PowerShell syntax for environment variables if needed
+        run: flutter build windows --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(Get-Date -UFormat %s)
+
       # Package Windows build into a zip
       - name: Package Windows Release
+        # Use PowerShell for zipping on Windows runner
+        run: Compress-Archive -Path build/windows/runner/Release/* -DestinationPath btour-windows-${{ steps.tag.outputs.version }}.zip
+
+      # Upload Windows artifact
+      - name: Upload Windows ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with: { name: windows-zip-artifact, path: btour-windows-${{ steps.tag.outputs.version }}.zip }
+
+  # --- Job to create the Release (runs after ALL builds) ---
+  create_release:
+    runs-on: ubuntu-latest # Release creation can run on ubuntu
+    needs: [build_macos_android, build_linux, build_windows] # Wait for ALL build jobs
+    steps:
+      # Get the tag consistently
+      - name: Get version tag from triggering ref
+        id: tag
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        # Downloads all artifacts into directories named after the artifact name
+
+      # List downloaded files for debugging
+      - name: List downloaded artifacts
         run: |
-          cd build/windows/runner/Release
-          zip -r ../../../../btour-windows-${{ steps.tag.outputs.version }}.zip .
-          cd ../../../../.. # Return to project root
+          ls -R
 
-
-      # ------------------ RELEASE STEP ------------------
-
-      # 14. Create GitHub Release and Upload Artifacts
       - name: Create GitHub Release
-        uses: ncipollo/release-action@v1 # Uses a popular action for creating releases
+        uses: ncipollo/release-action@v1
         with:
-          # Define artifacts to upload (use paths relative to workspace root)
+          # Update artifact paths to match download locations
           artifacts: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
-            btour-linux-${{ steps.tag.outputs.version }}.zip
-            btour-macos-${{ steps.tag.outputs.version }}.zip
-            btour-windows-${{ steps.tag.outputs.version }}.zip
-          # Uses the tag that triggered the workflow
+            apk-artifact/app-release.apk
+            aab-artifact/app-release.aab
+            linux-zip-artifact/btour-linux-${{ steps.tag.outputs.version }}.zip
+            macos-zip-artifact/btour-macos-${{ steps.tag.outputs.version }}.zip
+            windows-zip-artifact/btour-windows-${{ steps.tag.outputs.version }}.zip
           tag: ${{ github.ref_name }}
-          # Creates a release name like "Release v1.0.0"
           name: Release ${{ github.ref_name }}
-          # Automatically generate release notes from merged PRs (optional)
           generateReleaseNotes: true
-          # Mark as a full release (not pre-release)
           prerelease: false
-          # Use the default GITHUB_TOKEN for authentication
           token: ${{ secrets.GITHUB_TOKEN }}
