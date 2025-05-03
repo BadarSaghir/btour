@@ -63,7 +63,6 @@ jobs:
   # --- Job specifically for Linux build ---
   build_linux:
     runs-on: ubuntu-latest
-    needs: build_macos_android # Add needs to get tag_version output
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
