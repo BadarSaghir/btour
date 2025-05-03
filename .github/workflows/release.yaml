@@ -96,7 +96,7 @@ jobs:
 
   # --- Job specifically for Windows build ---
   build_windows:
-    needs: build_macos_android # Add needs to get tag_version output
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
