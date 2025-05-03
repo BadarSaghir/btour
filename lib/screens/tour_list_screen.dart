@@ -62,7 +62,6 @@ class _TourListScreenState extends State<TourListScreen> {
         );
         break;
       case TourSortOption.dateDesc:
-      default:
         filteredTours.sort((a, b) {
           final statusA = a.status != TourStatus.Ended;
           final statusB = b.status != TourStatus.Ended;
@@ -94,8 +93,8 @@ class _TourListScreenState extends State<TourListScreen> {
       // Dismiss keyboard when tapping outside fields
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(
-          0.4,
+        backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.4,
         ), // Subtle background
         appBar: _buildAppBar(context, theme),
         body: Column(
@@ -364,7 +363,7 @@ class _TourListScreenState extends State<TourListScreen> {
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
-                ).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
+                ).textTheme.titleMedium?.copyWith(color: Colors.grey),
               ),
             ],
           ),
