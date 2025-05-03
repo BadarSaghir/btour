@@ -561,7 +561,7 @@ import 'package:btour/models/tour.dart';
 import 'package:btour/models/category.dart';
 
 class DatabaseHelper {
-  static const _dbName = 'tourExpenseApp.db'; // Use a distinct name
+  static const _dbName = 'tours_expenses.db'; // Use a distinct name
   static const _dbVersion = 1; // Start versioning for sqlite3 schema
 
   static final DatabaseHelper instance = DatabaseHelper._init();
