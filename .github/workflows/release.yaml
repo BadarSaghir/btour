@@ -76,6 +76,17 @@ jobs:
           zip -r ../../../../btour-linux-${{ steps.tag.outputs.version }}.zip .
           cd ../../../../.. # Return to project root
 
+      # 12. Build macOS (Release)
+      - name: Build macOS Release
+        run: flutter build macos --release --build-name=${{ steps.tag.outputs.version }} --build-number=$(date +%s)
+      # Package macOS build into a zip
+      - name: Package macOS Release
+        # Note: App name might vary based on your project settings
+        # Adjust 'YourAppName.app' if necessary. Check build/macos/Build/Products/Release/
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../btour-macos-${{ steps.tag.outputs.version }}.zip *.app
+          cd ../../../../.. # Return to project root
 
       # 13. Build Windows (Release)
       - name: Build Windows Release
@@ -99,6 +110,7 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
             btour-linux-${{ steps.tag.outputs.version }}.zip
+            btour-macos-${{ steps.tag.outputs.version }}.zip
             btour-windows-${{ steps.tag.outputs.version }}.zip
           # Uses the tag that triggered the workflow
           tag: ${{ github.ref_name }}
