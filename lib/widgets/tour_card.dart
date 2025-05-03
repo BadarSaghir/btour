@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // For currency formatting
-import 'package:provider/provider.dart';
-import 'package:btour/models/tour.dart';
-import 'package:btour/providers/tour_provider.dart'; // To get holder name etc.
+import 'package:intl/intl.dart'; // For date formatting
+import 'package:btour/models/tour.dart'; // Import your Tour model
+import 'package:btour/providers/tour_provider.dart'; // To get status color potentially
+import 'package:provider/provider.dart'; // To access provider for status color
 
 class TourCard extends StatelessWidget {
   final Tour tour;
@@ -12,170 +12,131 @@ class TourCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use provider for lookups but don't need to listen here
-    final tourProvider = Provider.of<TourProvider>(context, listen: false);
-    final currencyFormat = NumberFormat.currency(
-      locale: 'en_US',
-      symbol: "\$",
-    );
+    final theme = Theme.of(context);
+    // Use provider only for consistent status color lookup if desired
+    // final tourProvider = Provider.of<TourProvider>(context, listen: false);
+    final statusColor = _getStatusColor(
+      tour.status,
+      theme,
+    ); // Pass theme for fallback colors
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
 
     return Card(
-      clipBehavior:
-          Clip.antiAlias, // Ensures inkwell ripple stays within bounds
+      elevation: 3.0,
+      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      clipBehavior: Clip.antiAlias, // Clip content to rounded borders
       child: InkWell(
         onTap: onTap,
+        splashColor: theme.primaryColor.withValues(alpha: 0.1),
+        highlightColor: theme.primaryColor.withValues(alpha: 0.05),
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tour Name and Status Chip row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Tour Name (allow wrapping)
                   Expanded(
-                    // Allow name to take available space
                     child: Text(
                       tour.name,
-                      style: Theme.of(context).textTheme.titleLarge,
-                      maxLines: 2, // Allow wrapping slightly
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        // color: theme.colorScheme.primary,
+                      ),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 8), // Space before chip
+                  const SizedBox(width: 10),
+                  // Status Chip
                   Chip(
-                    label: Text(tour.statusString),
-                    backgroundColor: _getStatusColor(tour.status),
+                    label: Text(tour.statusString.toUpperCase()),
                     labelStyle: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
+                    backgroundColor: statusColor,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 0,
+                      horizontal: 8,
+                      vertical: 2,
                     ),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    side: BorderSide.none,
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-
-              // Date Range
-              Text(
-                '${tour.formattedStartDate} - ${tour.formattedEndDate}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 8),
-
-              // Advance Holder
-              Text.rich(
-                TextSpan(
-                  text: 'Holder: ',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
-                  children: [
-                    TextSpan(
-                      text: tourProvider.getPersonNameById(
-                        tour.advanceHolderPersonId,
+              const SizedBox(height: 10),
+              Divider(color: Colors.grey.shade300, height: 1),
+              const SizedBox(height: 12),
+              // Dates and Financials Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Dates Column
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInfoRow(
+                        theme,
+                        Icons.date_range_outlined,
+                        '${tour.formattedStartDate} - ${tour.formattedEndDate}',
                       ),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(height: 4),
+                      _buildInfoRow(
+                        theme,
+                        Icons.person_pin_circle_outlined,
+                        'Adv Holder: ${context.select((TourProvider p) => p.getPersonNameById(tour.advanceHolderPersonId))}', // Get name via provider
                       ),
-                    ),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-
-              // Advance Amount
-              Text(
-                'Advance: ${currencyFormat.format(tour.advanceAmount)}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.green.shade700),
-              ),
-
-              // Show Spent/Remaining only for Finished tours on the card
-              if (tour.status == TourStatus.Ended)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6.0),
-                  child: FutureBuilder<double>(
-                    // Fetch total spent specifically for this finished card
-                    // This ensures accuracy even if provider state isn't perfectly synced
-                    // Could be optimized if performance becomes an issue
-                    future: tourProvider.getTotalExpensesForTour(tour.id!),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        // Show a placeholder or small indicator
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Text(
-                              'Calculating...',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        );
-                      }
-                      if (snapshot.hasError) {
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Text(
-                              'Error',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: Colors.red),
-                            ),
-                          ],
-                        );
-                      }
-
-                      final spent = snapshot.data ?? 0.0;
-                      final remaining = tour.advanceAmount - spent;
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Spent: ${currencyFormat.format(spent)}',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.red.shade700),
-                          ),
-                          Text(
-                            'Remaining: ${currencyFormat.format(remaining)}',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color:
-                                  remaining >= 0
-                                      ? Colors.blue.shade800
-                                      : Colors.orange.shade900,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                    ],
                   ),
-                ),
-
-              // Optionally show participant count asynchronously
-              // FutureBuilder<List<Person>>(
-              //   future: tourProvider.getTourParticipants(tour.id!),
-              //   builder: (context, snapshot) {
-              //     if (snapshot.hasData) {
-              //       return Text('Participants: ${snapshot.data!.length}', style: Theme.of(context).textTheme.bodySmall);
-              //     }
-              //     return SizedBox.shrink(); // Or a placeholder
-              //   }
-              // ),
+                  // Financials Column
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _buildInfoRow(
+                        theme,
+                        Icons.account_balance_wallet_outlined,
+                        'Adv: ${currencyFormat.format(tour.advanceAmount)}',
+                        color: Colors.green.shade700,
+                      ),
+                      const SizedBox(height: 4),
+                      // FutureBuilder for Total Expenses (prevents fetching for all cards upfront)
+                      FutureBuilder<double>(
+                        // Use the provider's method to fetch expense total for THIS tour
+                        future: Provider.of<TourProvider>(
+                          context,
+                          listen: false,
+                        ).getTotalExpensesForTour(tour.id!),
+                        builder: (context, snapshot) {
+                          String spentText = 'Spent: ...';
+                          Color spentColor = Colors.grey;
+                          if (snapshot.connectionState ==
+                                  ConnectionState.done &&
+                              snapshot.hasData) {
+                            spentText =
+                                'Spent: ${currencyFormat.format(snapshot.data)}';
+                            spentColor = Colors.red.shade700;
+                          } else if (snapshot.hasError) {
+                            spentText = 'Spent: Error';
+                          }
+                          return _buildInfoRow(
+                            theme,
+                            Icons.receipt_long,
+                            spentText,
+                            color: spentColor,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -183,7 +144,29 @@ class TourCard extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(TourStatus status) {
+  Widget _buildInfoRow(
+    ThemeData theme,
+    IconData icon,
+    String text, {
+    Color? color,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min, // Prevent row from taking full width
+      children: [
+        Icon(icon, size: 14, color: color ?? Colors.grey.shade600),
+        const SizedBox(width: 5),
+        Text(
+          text,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: color ?? Colors.grey.shade700,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getStatusColor(TourStatus status, ThemeData theme) {
     switch (status) {
       case TourStatus.Created:
         return Colors.grey.shade500;
@@ -191,6 +174,8 @@ class TourCard extends StatelessWidget {
         return Colors.blue.shade600;
       case TourStatus.Ended:
         return Colors.green.shade600;
+      default:
+        return theme.disabledColor; // Fallback
     }
   }
 }
