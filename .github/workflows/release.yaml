@@ -152,7 +152,6 @@ jobs:
           body: |
             Multi-platform release for version ${{steps.tag.outputs.version }}
             # Highlight
-            - Added Chart Support in details of tour
             - Add filter support for search in  Tour search
             - Add Filter support for better  UX
             - Add Sorting support for Tours List
