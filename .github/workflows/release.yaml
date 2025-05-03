@@ -39,7 +39,7 @@ jobs:
         run: |
           cd build/macos/Build/Products/Release
           # Ensure 'btour.app' matches your actual app name
-          zip -r ../../../../btour-macos.zip btour.app
+          zip -r ../../../../btour-macos.zip tour_expense_app.app 
           cd ../../../../..
 
       # --- Build Android ---
