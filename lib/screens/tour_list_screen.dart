@@ -1,3 +1,4 @@
+import 'package:btour/screens/backup_restore_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:btour/models/tour.dart';
@@ -20,13 +21,21 @@ class _TourListScreenState extends State<TourListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tour Expense Tracker'),
+        title: const Text('Btour'),
         actions: [
           // Optional: Add actions like managing people globally
-          // IconButton(
-          //   icon: Icon(Icons.people),
-          //   onPressed: () { /* Navigate to manage people screen */ },
-          // ),
+          IconButton(
+            icon: Icon(Icons.backup),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BackupRestoreScreen(),
+                ),
+              );
+              /* Navigate to manage people screen */
+            },
+          ),
         ],
       ),
       body: Consumer<TourProvider>(
