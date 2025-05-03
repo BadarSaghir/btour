@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:btour/database/database_helper.dart'; // Adjust import path
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +11,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 class BackupRestoreService {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
+  // --- Check Android SDK Version ---
   Future<int> _getAndroidSdkInt() async {
     if (Platform.isAndroid) {
       final deviceInfo = await DeviceInfoPlugin().androidInfo;
@@ -18,8 +20,7 @@ class BackupRestoreService {
     return 0; // Return 0 if not Android
   }
 
-  // --- Request Storage Permissions ---
-  // --- Request Storage Permissions (Enhanced) ---
+  // --- Request Permissions (Revised for Android Versions) ---
   Future<bool> _requestPermissions() async {
     if (!Platform.isAndroid) {
       print("Platform is not Android, skipping explicit permission request.");
@@ -66,12 +67,12 @@ class BackupRestoreService {
     }
   }
 
-  // --- Backup Database ---
-  /// Creates a backup of the database file.
-  /// Returns the path of the backup file if successful, null otherwise.
+  // --- Backup Database (Revised using file picker's 'save' suggestion) ---
   Future<String?> backupDatabase() async {
+    // Note: _requestPermissions might only be relevant for Android < 10 now.
+    // SAF handles permissions implicitly on newer versions via the picker.
     // if (!await _requestPermissions()) {
-    //   print("Backup failed: Permissions not granted.");
+    //   print("Backup failed: Pre-check permissions failed (relevant for very old Android).");
     //   return null;
     // }
 
@@ -87,68 +88,75 @@ class BackupRestoreService {
         print("Backup failed: Database file does not exist at $dbPath.");
         return null;
       }
+      final Uint8List fileBytes = await dbFile.readAsBytes();
+      // --- Generate Suggested Filename ---
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final backupFilename = 'backup_btour_$timestamp.db';
 
-      // --- Choose Backup Location ---
-      // Option 1: Let user choose directory
-      String? outputDirectory = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Select Backup Folder',
+      // --- Use FilePicker to get the SAVE location from the user ---
+      // This invokes the SAF "Save As" dialog.
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Database Backup As...',
+        fileName: backupFilename,
+        bytes: fileBytes,
+        // Optional: Specify allowed extensions if desired, though less critical for save
+        type: FileType.custom,
+        allowedExtensions: ['db'],
       );
 
-      // Option 2: Directly save to Downloads (might need broader permissions)
-      // Directory? downloadsDir = await getDownloadsDirectory();
-      // String? outputDirectory = downloadsDir?.path;
-
-      if (outputDirectory == null) {
-        print("Backup cancelled by user.");
-        return null; // User canceled picker
+      if (outputFile == null) {
+        // User canceled the picker
+        print("Backup cancelled by user (save file picker).");
+        return null;
       }
 
-      // --- Create Backup Filename ---
-      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final backupFilename = 'backup_tours_expenses_$timestamp.db';
-      final backupFilePath = p.join(outputDirectory, backupFilename);
-
+      // IMPORTANT: The path returned by `saveFile` is where the user *wants* to save.
+      // You still need to copy your actual database file content to this location.
       print("Current DB path: $dbPath");
-      print("Attempting to backup to: $backupFilePath");
+      print("User selected save location: $outputFile");
+      print("Attempting to copy DB to selected location...");
 
-      // --- Copy the file ---
-      await dbFile.copy(backupFilePath);
+      try {
+        // --- Copy the actual database file to the path chosen by the user ---
 
-      print("Database backup successful: $backupFilePath");
-      return backupFilePath; // Return path on success
+        // await dbFile.copy(outputFile);
+        print("Database backup successful: $outputFile");
+        return outputFile; // Return the path where the backup was actually saved
+      } catch (e) {
+        print("Error copying DB file to '$outputFile': $e");
+        print(
+          "This might happen if the path returned by saveFile is not directly writable (e.g., requires URI handling).",
+        );
+        return null;
+        // If this fails consistently, a more complex SAF implementation using URIs might be needed.
+      }
     } catch (e) {
-      print("Error during database backup: $e");
+      print("Error during database backup process: $e");
       return null;
     }
   }
 
-  // --- Restore Database ---
-  /// Restores the database from a selected backup file.
-  /// Returns true if successful, false otherwise.
-  /// IMPORTANT: Requires app restart after successful restore.
+  // --- Restore Database --- (Should generally work as `pickFiles` uses SAF for READ)
   Future<bool> restoreDatabase() async {
-    // Permissions might be needed if reading from a restricted location,
-    // but file_picker often handles this. Let's assume picker works.
-    // if (!await _requestPermissions()) {
-    //   print("Restore failed: Permissions not granted.");
-    //   return false;
-    // }
-
+    // No explicit permission request needed here as pickFiles uses SAF for read access
     try {
       // --- Select Backup File ---
+      print("Launching file picker for restore...");
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.any, // Allow any file, user needs to pick correctly
-        // Or filter: type: FileType.custom, allowedExtensions: ['db'],
-        allowedExtensions: ['db'],
+        allowedExtensions: ["db"],
+        type: FileType.custom,
         dialogTitle: 'Select Database Backup File (.db)',
+        allowMultiple: false,
       );
+      final filePath = result?.files.single.path;
 
-      if (result == null || result.files.single.path == null) {
-        print("Restore cancelled by user.");
-        return false; // User canceled picker or path is missing
+      if (result == null || filePath == null) {
+        print("Restore cancelled by user or file path missing.");
+        return false;
       }
 
-      final backupFilePath = result.files.single.path!;
+      final backupFilePath = filePath;
+      print("User selected backup file: $backupFilePath");
       final backupFile = File(backupFilePath);
 
       if (!await backupFile.exists()) {
@@ -156,15 +164,6 @@ class BackupRestoreService {
           "Restore failed: Selected backup file does not exist: $backupFilePath",
         );
         return false;
-      }
-      // Basic check: is it likely a SQLite file? (Optional)
-      // Could check magic bytes or just the extension
-      if (!backupFilePath.toLowerCase().endsWith('.db')) {
-        print(
-          "Warning: Selected file '$backupFilePath' might not be a valid database backup (.db).",
-        );
-        return false;
-        // Optionally, ask for confirmation here before proceeding
       }
 
       // --- Get Current Database Path ---
@@ -174,6 +173,7 @@ class BackupRestoreService {
         return false;
       }
       final currentDbFile = File(currentDbPath);
+      print("Current database location: $currentDbPath");
 
       // --- CRITICAL: Close the database connection ---
       print("Closing current database connection before restore...");
@@ -184,7 +184,7 @@ class BackupRestoreService {
       print("Attempting to restore from: $backupFilePath");
       print("Replacing current DB at: $currentDbPath");
 
-      // It's often safer to delete the old one first, then copy.
+      // Safer: Delete old, then copy new.
       if (await currentDbFile.exists()) {
         print("Deleting old database file...");
         await currentDbFile.delete();
@@ -192,6 +192,8 @@ class BackupRestoreService {
       }
 
       print("Copying backup file to database location...");
+      // This copy operation *should* work because the app has permission
+      // to write to its own internal directory (currentDbPath).
       await backupFile.copy(currentDbPath);
       print("Backup file copied successfully.");
 
@@ -202,19 +204,18 @@ class BackupRestoreService {
       return true; // Success
     } catch (e) {
       print("Error during database restore: $e");
-      // Attempt to re-initialize DB helper might be needed if state is inconsistent
-      // but usually restart is the safest.
+      // Ensure DB is closed if error occurs mid-way? Restart is usually sufficient.
       return false;
     }
   }
 
-  // --- Share Backup File (Helper) ---
+  // --- Share Backup File (Helper) --- (Keep as is)
   Future<void> shareBackupFile(String filePath) async {
     try {
       final file = XFile(filePath); // share_plus uses XFile
-      final params = ShareParams(text: 'Db Backup of tour', files: [file]);
-
-      final result = await SharePlus.instance.share(params);
+      final result = await Share.shareXFiles([
+        file,
+      ], text: 'Database Backup (${p.basename(filePath)})');
 
       if (result.status == ShareResultStatus.success) {
         print('Backup file shared successfully.');
