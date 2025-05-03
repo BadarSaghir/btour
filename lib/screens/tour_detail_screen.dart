@@ -1,42 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:btour/models/person.dart'; // Need for report tab person lookup
-import 'package:btour/models/tour.dart';
+import 'package:btour/models/tour.dart'; // Needed for TourStatus enum access
 import 'package:btour/providers/tour_provider.dart';
 import 'package:btour/screens/add_edit_expense_screen.dart';
 import 'package:btour/screens/add_edit_tour_screen.dart';
 import 'package:btour/widgets/expense_list_item.dart';
-import 'package:collection/collection.dart'; // Import for firstWhereOrNull
+import 'package:collection/collection.dart'; // For firstWhereOrNull if needed elsewhere
 
 class TourDetailScreen extends StatelessWidget {
+  // Removed tourId constructor - we rely on the provider's _currentTour
   const TourDetailScreen({super.key});
+
+  // If you were fetching based on ID passed via constructor, you'd do this:
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   // Fetch details when the screen initializes if using route arguments
+  //   // Use addPostFrameCallback to avoid calling provider during build
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     Provider.of<TourProvider>(context, listen: false).fetchTourDetails(widget.tourId);
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
     // Listen to provider changes to update the UI
+    // Use watch for automatic rebuilding when notifyListeners is called
     final tourProvider = Provider.of<TourProvider>(context);
     final tour = tourProvider.currentTour; // Get the currently loaded tour
     final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: "\$");
 
-    // Handle loading state managed by the provider
+    // Handle loading state BEFORE accessing tour details
+    // Check if we are loading AND currentTour is still null (initial load for this detail screen)
     if (tourProvider.isLoading && tour == null) {
-      // Initial loading state when navigating here
       return Scaffold(
         appBar: AppBar(title: const Text('Loading Tour...')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    // Handle case where tour loading finished but resulted in null (e.g., tour deleted)
+    // Handle case where loading finished but tour is still null (e.g., deleted or error)
     if (tour == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Error')),
-        body: const Center(
-          child: Text('Tour not found or could not be loaded.'),
+        appBar: AppBar(
+          title: const Text('Error'),
+          leading: IconButton(
+            // Add back button manually if needed
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Tour not found or could not be loaded. It might have been deleted.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+            ),
+          ),
         ),
       );
     }
+
+    // --- Tour object is available, build the main UI ---
 
     // Calculate remaining amount based on current provider state
     final remainingAmount =
@@ -50,14 +78,12 @@ class TourDetailScreen extends StatelessWidget {
           actions: [
             // Edit Tour Button - Enabled only if tour is not Ended
             IconButton(
-              icon: const Icon(Icons.edit_note), // Different icon maybe?
+              icon: const Icon(Icons.edit_outlined), // Standard edit icon
               tooltip: 'Edit Tour Details',
-              // Disable if tour is ended
               onPressed:
                   tour.status == TourStatus.Ended
-                      ? null
+                      ? null // Disable if tour is ended
                       : () {
-                        // Navigate to edit screen, passing the current tour object
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder:
@@ -68,13 +94,15 @@ class TourDetailScreen extends StatelessWidget {
                       },
             ),
             // Tour Status Actions (Start/End/Reopen)
+            // Use Consumer or Selector if only the button needs to rebuild on status change
+            // For simplicity here, the whole AppBar rebuilds which is often acceptable
             _buildStatusActionButton(context, tourProvider, tour),
 
             // Delete Tour Button (use with confirmation)
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.delete_forever_outlined,
-                color: Colors.red.shade700,
+                color: Colors.redAccent,
               ),
               tooltip: 'Delete Tour Permanently',
               onPressed:
@@ -82,22 +110,18 @@ class TourDetailScreen extends StatelessWidget {
             ),
           ],
           bottom: const TabBar(
-            labelColor: Colors.blue, // Color for selected tab text
-            unselectedLabelColor: Colors.grey, // Color for unselected tab text
-            indicatorColor: Colors.blue, // Color of the underline indicator
+            // labelColor: Theme.of(context).indicatorColor, // Use theme color
+            // indicatorColor: Theme.of(context).indicatorColor,
             tabs: [
               Tab(text: 'Overview', icon: Icon(Icons.info_outline)),
               Tab(text: 'Expenses', icon: Icon(Icons.receipt_long_outlined)),
-              Tab(
-                text: 'Report',
-                icon: Icon(Icons.assessment_outlined),
-              ), // Changed icon
+              Tab(text: 'Report', icon: Icon(Icons.assessment_outlined)),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            // --- Overview Tab ---
+            // Pass necessary data from provider to tab builders
             _buildOverviewTab(
               context,
               tourProvider,
@@ -105,11 +129,7 @@ class TourDetailScreen extends StatelessWidget {
               remainingAmount,
               currencyFormat,
             ),
-
-            // --- Expenses Tab ---
             _buildExpensesTab(context, tourProvider, tour),
-
-            // --- Report Tab ---
             _buildReportTab(context, tourProvider, tour, currencyFormat),
           ],
         ),
@@ -119,29 +139,32 @@ class TourDetailScreen extends StatelessWidget {
                 ? null
                 : FloatingActionButton(
                   onPressed: () {
-                    // Ensure participants are loaded before navigating
-                    if (tourProvider.currentTourParticipants.isEmpty) {
-                      // This shouldn't happen if fetchTourDetails worked, but as a safeguard:
+                    // Check if participants are available (they should be if tour loaded)
+                    if (tourProvider.currentTourParticipants.isEmpty &&
+                        tourProvider.people.isNotEmpty) {
+                      // Might indicate a state inconsistency, maybe show warning/refetch?
+                      print(
+                        "Warning: currentTourParticipants is empty, but people list is not. Proceeding anyway.",
+                      );
+                      // You could potentially fetch participants again here if needed:
+                      // tourProvider.fetchTourDetails(tour.id!);
+                    }
+                    if (tourProvider.currentTour == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                            'Participants not loaded. Cannot add expense.',
-                          ),
+                          content: Text('Error: Current tour data missing.'),
                         ),
                       );
                       return;
                     }
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder:
-                            (context) => AddEditExpenseScreen(
-                              tour: tour,
-                            ), // Pass current tour object
+                        builder: (context) => AddEditExpenseScreen(tour: tour),
                       ),
                     );
                   },
                   tooltip: 'Add New Expense',
-                  child: const Icon(Icons.add_shopping_cart), // Different Icon
+                  child: const Icon(Icons.add),
                 ),
       ),
     );
@@ -153,22 +176,36 @@ class TourDetailScreen extends StatelessWidget {
     TourProvider tourProvider,
     Tour tour,
   ) {
+    // This widget rebuilds whenever the TourDetailScreen rebuilds.
+    // It reads the status directly from the 'tour' object passed in.
+    print("Building Status Action Button for status: ${tour.status}");
     switch (tour.status) {
       case TourStatus.Created:
         return IconButton(
           icon: const Icon(Icons.play_circle_outline, color: Colors.green),
           tooltip: 'Start Tour',
           onPressed: () async {
-            // Show confirmation?
-            await tourProvider.changeTourStatus(tour.id!, TourStatus.Started);
-            if (context.mounted) {
-              // Check mounted after async gap
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Tour Started!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+            // Optional: Confirmation Dialog
+            try {
+              await tourProvider.changeTourStatus(tour.id!, TourStatus.Started);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tour Started!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            } catch (e) {
+              print("Error starting tour: $e");
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error starting tour: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             }
           },
         );
@@ -176,33 +213,43 @@ class TourDetailScreen extends StatelessWidget {
         return IconButton(
           icon: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
           tooltip: 'End Tour',
-          onPressed:
-              () => _confirmEndTour(
-                context,
-                tourProvider,
-                tour,
-              ), // Use confirmation dialog
+          onPressed: () => _confirmEndTour(context, tourProvider, tour),
         );
       case TourStatus.Ended:
         return IconButton(
           icon: const Icon(Icons.refresh_outlined, color: Colors.orange),
           tooltip: 'Reopen Tour',
           onPressed: () async {
-            // Show confirmation?
-            await tourProvider.changeTourStatus(
-              tour.id!,
-              TourStatus.Started,
-            ); // Reopen to 'Started' status
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Tour Reopened!'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
+            // Optional: Confirmation Dialog
+            try {
+              await tourProvider.changeTourStatus(
+                tour.id!,
+                TourStatus.Started,
+              ); // Reopen to 'Started'
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tour Reopened!'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            } catch (e) {
+              print("Error reopening tour: $e");
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error reopening tour: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             }
           },
         );
+      // Default case if enum expands unexpectedly
+      default:
+        return const SizedBox.shrink();
     }
   }
 
@@ -230,16 +277,27 @@ class TourDetailScreen extends StatelessWidget {
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
                 child: const Text('End Tour'),
                 onPressed: () async {
-                  Navigator.of(ctx).pop(); // Close dialog
-                  await tourProvider.changeTourStatus(
-                    tour.id!,
-                    TourStatus.Ended,
-                  );
-                  if (context.mounted) {
+                  Navigator.of(ctx).pop(); // Close dialog first
+                  try {
+                    await tourProvider.changeTourStatus(
+                      tour.id!,
+                      TourStatus.Ended,
+                    );
+                    // Check mounted before showing Snackbar
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Tour Ended! Final report available.'),
                         backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    print("Error ending tour: $e");
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error ending tour: $e'),
+                        backgroundColor: Colors.red,
                       ),
                     );
                   }
@@ -281,12 +339,11 @@ class TourDetailScreen extends StatelessWidget {
                   Navigator.of(ctx).pop(); // Close dialog
                   try {
                     await tourProvider.deleteTour(tourId);
-                    // Navigate back to list screen after successful deletion
+                    // Use mounted check *before* Navigator.pop
                     if (context.mounted) {
-                      // Check if the current screen is still mounted before popping.
-                      if (Navigator.canPop(context)) {
-                        Navigator.of(context).pop(); // Pop detail screen
-                      }
+                      // Pop the detail screen
+                      Navigator.of(context).pop();
+                      // Show confirmation
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Tour deleted successfully.'),
@@ -296,6 +353,7 @@ class TourDetailScreen extends StatelessWidget {
                     }
                   } catch (e) {
                     print("Error deleting tour: $e");
+                    // Use mounted check *before* showing Snackbar
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -312,7 +370,7 @@ class TourDetailScreen extends StatelessWidget {
     );
   }
 
-  // --- Tab Builders ---
+  // --- Tab Builders (Keep these mostly as they were, ensure they read from provider) ---
 
   Widget _buildOverviewTab(
     BuildContext context,
@@ -321,8 +379,13 @@ class TourDetailScreen extends StatelessWidget {
     double remainingAmount,
     NumberFormat currencyFormat,
   ) {
+    // Access data directly from the provider's state
     final participants = tourProvider.currentTourParticipants;
     final holder = tourProvider.currentTourAdvanceHolder;
+
+    // Handle case where holder might still be loading (though unlikely if fetchTourDetails worked)
+    final holderName =
+        holder?.name ?? (tourProvider.isLoading ? 'Loading...' : 'N/A');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -347,12 +410,7 @@ class TourDetailScreen extends StatelessWidget {
                 tour.statusString,
                 chipColor: _getStatusColor(tour.status),
               ),
-              _buildInfoRow(
-                context,
-                null,
-                'Advance Holder:',
-                holder?.name ?? 'Loading...',
-              ),
+              _buildInfoRow(context, null, 'Advance Holder:', holderName),
             ],
           ),
           const SizedBox(height: 16),
@@ -394,13 +452,19 @@ class TourDetailScreen extends StatelessWidget {
             title: 'Participants (${participants.length})',
             icon: Icons.people_outline,
             children: [
-              if (participants.isEmpty)
-                const Text('No participants listed.')
+              if (participants.isEmpty && !tourProvider.isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text('No participants listed.'),
+                )
+              else if (tourProvider.isLoading && participants.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text('Loading participants...'),
+                ) // Indicate loading
               else
                 Padding(
-                  padding: const EdgeInsets.only(
-                    top: 8.0,
-                  ), // Add padding above chips
+                  padding: const EdgeInsets.only(top: 8.0),
                   child: Wrap(
                     spacing: 8.0,
                     runSpacing: 4.0,
@@ -413,9 +477,9 @@ class TourDetailScreen extends StatelessWidget {
                                         ? const Icon(
                                           Icons.star,
                                           size: 16,
-                                          color: Colors.orangeAccent,
+                                          color: Colors.amber,
                                         )
-                                        : null, // Mark holder
+                                        : null,
                                 label: Text(person.name),
                                 visualDensity: VisualDensity.compact,
                               ),
@@ -425,13 +489,11 @@ class TourDetailScreen extends StatelessWidget {
                 ),
             ],
           ),
-          // Add more overview details if needed
         ],
       ),
     );
   }
 
-  // Helper for creating consistent info cards
   Widget _buildInfoCard(
     BuildContext context, {
     required String title,
@@ -439,17 +501,18 @@ class TourDetailScreen extends StatelessWidget {
     required List<Widget> children,
   }) {
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      elevation: 2,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon, color: Theme.of(context).primaryColor, size: 20),
-                const SizedBox(width: 8),
+                Icon(icon, color: Theme.of(context).primaryColor, size: 22),
+                const SizedBox(width: 10),
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -458,7 +521,7 @@ class TourDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const Divider(height: 16),
+            const Divider(height: 20, thickness: 0.5),
             ...children,
           ],
         ),
@@ -466,7 +529,6 @@ class TourDetailScreen extends StatelessWidget {
     );
   }
 
-  // Helper for creating consistent info rows within cards
   Widget _buildInfoRow(
     BuildContext context,
     IconData? icon,
@@ -478,50 +540,58 @@ class TourDetailScreen extends StatelessWidget {
   }) {
     Widget valueWidget = Text(
       value,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        color: valueColor,
-        fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        // Use bodyMedium for consistency
+        color:
+            valueColor ??
+            Theme.of(
+              context,
+            ).textTheme.bodyMedium?.color, // Use default color if null
+        fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
       ),
       overflow: TextOverflow.ellipsis,
+      maxLines: 2, // Allow wrapping slightly
     );
 
-    // Use chip for specific values like status
     if (chipColor != null) {
       valueWidget = Chip(
         label: Text(value),
-        backgroundColor: chipColor,
+        backgroundColor: chipColor.withOpacity(0.8),
         labelStyle: const TextStyle(
           color: Colors.white,
           fontSize: 12,
           fontWeight: FontWeight.bold,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 0,
+        ), // Adjust padding
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
+        side: BorderSide.none, // Remove border
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start, // Align label top if value wraps
+        crossAxisAlignment: CrossAxisAlignment.center, // Center vertically
         children: [
           if (icon != null) ...[
             Icon(icon, color: Colors.grey.shade600, size: 18),
             const SizedBox(width: 8),
           ],
           SizedBox(
-            width: 110, // Fixed width for label column
+            width: 120, // Adjust width as needed
             child: Text(
               label,
               style: Theme.of(
                 context,
-              ).textTheme.titleSmall?.copyWith(color: Colors.grey.shade700),
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade700),
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(child: valueWidget), // Value takes remaining space
+          const SizedBox(width: 10),
+          Expanded(child: valueWidget),
         ],
       ),
     );
@@ -530,11 +600,11 @@ class TourDetailScreen extends StatelessWidget {
   Color _getStatusColor(TourStatus status) {
     switch (status) {
       case TourStatus.Created:
-        return Colors.grey.shade500;
+        return Colors.grey.shade600;
       case TourStatus.Started:
-        return Colors.blue.shade600;
+        return Colors.blue.shade700;
       case TourStatus.Ended:
-        return Colors.green.shade600;
+        return Colors.green.shade700;
     }
   }
 
@@ -543,11 +613,12 @@ class TourDetailScreen extends StatelessWidget {
     TourProvider tourProvider,
     Tour tour,
   ) {
-    // Get expenses from provider (which should be up-to-date)
     final expenses = tourProvider.currentTourExpenses;
 
-    // Check if data is loading (e.g., after adding/deleting an expense)
-    if (tourProvider.isLoading) {
+    // Show loading indicator *while* expenses might be refetching
+    if (tourProvider.isLoading && expenses.isEmpty) {
+      // Use a more subtle loading indicator if expenses were previously present
+      // but are being refetched (e.g., after delete)
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -556,7 +627,6 @@ class TourDetailScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            // Use Column for better alignment
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
@@ -569,12 +639,14 @@ class TourDetailScreen extends StatelessWidget {
                 'No expenses added yet.',
                 style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
               ),
-              if (tour.status !=
-                  TourStatus.Ended) // Show hint only if tour active
-                Text(
-                  'Tap the "+" button to add the first one!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+              if (tour.status != TourStatus.Ended)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    'Tap the "+" button to add the first one!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+                  ),
                 ),
             ],
           ),
@@ -582,35 +654,27 @@ class TourDetailScreen extends StatelessWidget {
       );
     }
 
+    // Use RefreshIndicator for manual refresh
     return RefreshIndicator(
-      onRefresh:
-          () => tourProvider.fetchTourDetails(
-            tour.id!,
-          ), // Refresh all details on pull
+      onRefresh: () => tourProvider.fetchTourDetails(tour.id!),
       child: ListView.builder(
-        padding: const EdgeInsets.only(
-          top: 8,
-          bottom: 80,
-        ), // Padding for FAB and top space
+        padding: const EdgeInsets.only(top: 8, bottom: 80), // Padding for FAB
         itemCount: expenses.length,
         itemBuilder: (context, index) {
           final expense = expenses[index];
-          // Find category name (safe lookup)
-          final category = tourProvider.categories.firstWhereOrNull(
-            (c) => c.id == expense.categoryId,
+          // Use provider's helper for category name for consistency
+          final categoryName = tourProvider.getCategoryNameById(
+            expense.categoryId,
           );
-          final categoryName = category?.name ?? 'Unknown Category';
 
           return ExpenseListItem(
             expense: expense,
-            categoryName: categoryName, // Pass category name
-            tourStatus: tour.status, // Pass status to enable/disable actions
+            categoryName: categoryName,
+            tourStatus: tour.status,
             onTap:
                 tour.status == TourStatus.Ended
                     ? null
                     : () {
-                      // Disable tap if ended
-                      // Navigate to edit expense screen
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder:
@@ -634,9 +698,7 @@ class TourDetailScreen extends StatelessWidget {
     TourProvider tourProvider,
     int expenseId,
   ) {
-    // Avoid showing dialog if context is no longer valid (e.g., screen already popped)
     if (!context.mounted) return;
-
     showDialog(
       context: context,
       builder:
@@ -657,24 +719,23 @@ class TourDetailScreen extends StatelessWidget {
                   Navigator.of(ctx).pop(); // Close dialog first
                   try {
                     await tourProvider.deleteExpenseFromCurrentTour(expenseId);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Expense deleted.'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
+                    // Check mounted before showing Snackbar
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Expense deleted.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
                   } catch (e) {
                     print("Error deleting expense: $e");
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error deleting expense: $e'),
-                          backgroundColor: Colors.redAccent,
-                        ),
-                      );
-                    }
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error deleting expense: $e'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
                   }
                 },
               ),
@@ -689,68 +750,52 @@ class TourDetailScreen extends StatelessWidget {
     Tour tour,
     NumberFormat currencyFormat,
   ) {
-    // Data from provider
-    final paymentsByPerson =
-        tourProvider.currentTourPaymentsByPerson; // Map<personId, amountPaid>
-    final peopleMap =
-        tourProvider.peopleMap; // Map<personId, Person> for name lookup
-    final participants =
-        tourProvider.currentTourParticipants; // Full list of participants
-    final expenses =
-        tourProvider.currentTourExpenses; // List of Expense objects
-    final categories = tourProvider.categories; // List of Category objects
+    // Access data directly from provider state
+    final paymentsByPerson = tourProvider.currentTourPaymentsByPerson;
+    final peopleMap = tourProvider.peopleMap;
+    // final participants = tourProvider.currentTourParticipants; // Not directly used, but available
+    final expenses = tourProvider.currentTourExpenses;
+    final categories = tourProvider.categories;
     final totalSpent = tourProvider.currentTourTotalSpent;
     final advance = tour.advanceAmount;
     final remaining = advance - totalSpent;
 
-    if (tourProvider.isLoading) {
+    // Show loading if necessary (e.g., data still being calculated/fetched)
+    if (tourProvider.isLoading &&
+        paymentsByPerson.isEmpty &&
+        expenses.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // --- Calculate Payments by Person (for display) ---
+    // Process data for reporting
     final paymentReportEntries =
         paymentsByPerson.entries
-            .map((entry) {
-              final personId = entry.key;
-              final amountPaid = entry.value;
-              final personName =
-                  peopleMap[personId]?.name ?? 'Unknown Person [$personId]';
-              return MapEntry(personName, amountPaid);
-            })
-            .where(
-              (entry) => entry.value > 0.001,
-            ) // Only show people who actually paid
-            .toList();
-    paymentReportEntries.sort(
-      (a, b) => b.value.compareTo(a.value),
-    ); // Sort by amount paid desc
+            .map(
+              (entry) => MapEntry(
+                tourProvider.getPersonNameById(entry.key), // Use helper
+                entry.value,
+              ),
+            )
+            .where((entry) => entry.value > 0.001)
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value)); // Sort desc
 
-    // --- Calculate Expenses by Category ---
     final Map<int, double> categoryTotals = {};
     for (var expense in expenses) {
       categoryTotals[expense.categoryId] =
           (categoryTotals[expense.categoryId] ?? 0.0) + expense.amount;
     }
-
     final categoryReportEntries =
         categoryTotals.entries
-            .map((entry) {
-              final categoryId = entry.key;
-              final totalAmount = entry.value;
-              final categoryName =
-                  categories
-                      .firstWhereOrNull((cat) => cat.id == categoryId)
-                      ?.name ??
-                  'Unknown Category [$categoryId]';
-              return MapEntry(categoryName, totalAmount);
-            })
-            .where(
-              (entry) => entry.value > 0.001,
-            ) // Only show categories with spending
-            .toList();
-    categoryReportEntries.sort(
-      (a, b) => b.value.compareTo(a.value),
-    ); // Sort by amount spent desc
+            .map(
+              (entry) => MapEntry(
+                tourProvider.getCategoryNameById(entry.key), // Use helper
+                entry.value,
+              ),
+            )
+            .where((entry) => entry.value > 0.001)
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value)); // Sort desc
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -776,14 +821,13 @@ class TourDetailScreen extends StatelessWidget {
           ),
           _buildReportSummaryItem(
             remaining >= 0 ? 'Remaining Balance:' : 'Overspent By:',
-            currencyFormat.format(remaining.abs()), // Show absolute value
+            currencyFormat.format(remaining.abs()),
             remaining >= 0 ? Colors.blue.shade800 : Colors.orange.shade900,
             isBold: true,
           ),
 
           const Divider(height: 30, thickness: 1),
 
-          // --- Expenses by Category Section ---
           Text(
             'Expenses by Category',
             style: Theme.of(
@@ -827,17 +871,11 @@ class TourDetailScreen extends StatelessWidget {
                     title: Text(
                       entry.key,
                       style: const TextStyle(fontWeight: FontWeight.w500),
-                    ), // Category Name
+                    ),
                     trailing: Text(
-                      '${currencyFormat.format(entry.value)} (${percentage.toStringAsFixed(1)}%)', // Amount Spent (% of total)
+                      '${currencyFormat.format(entry.value)} (${percentage.toStringAsFixed(1)}%)',
                       style: const TextStyle(fontSize: 14),
                     ),
-                    // Optional: Add a simple progress bar indicator?
-                    // subtitle: LinearProgressIndicator(
-                    //   value: percentage / 100,
-                    //   minHeight: 3,
-                    //   backgroundColor: Colors.grey.shade200,
-                    // ),
                   );
                 },
               ),
@@ -845,7 +883,6 @@ class TourDetailScreen extends StatelessWidget {
 
           const Divider(height: 30, thickness: 1),
 
-          // --- Payments by Individuals Section ---
           Text(
             'Payments by Individuals',
             style: Theme.of(
@@ -862,9 +899,9 @@ class TourDetailScreen extends StatelessWidget {
           const SizedBox(height: 16),
 
           if (paymentReportEntries.isEmpty)
-            Center(
+            const Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                padding: EdgeInsets.symmetric(vertical: 16.0),
                 child: Text(
                   'No individual payments were recorded.',
                   style: TextStyle(color: Colors.grey),
@@ -873,7 +910,6 @@ class TourDetailScreen extends StatelessWidget {
             )
           else
             Card(
-              // Put the list in a card
               elevation: 1,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -896,9 +932,9 @@ class TourDetailScreen extends StatelessWidget {
                     title: Text(
                       entry.key,
                       style: const TextStyle(fontWeight: FontWeight.w500),
-                    ), // Person Name
+                    ),
                     trailing: Text(
-                      currencyFormat.format(entry.value), // Amount Paid
+                      currencyFormat.format(entry.value),
                       style: const TextStyle(fontSize: 14),
                     ),
                   );
