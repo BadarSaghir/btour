@@ -10,38 +10,47 @@ class BackupRestoreService {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
   // --- Request Storage Permissions ---
+  // --- Request Storage Permissions (Enhanced) ---
   Future<bool> _requestPermissions() async {
-    // On Android, need storage permission for accessing shared directories
-    if (Platform.isAndroid) {
-      var status = await Permission.storage.status;
-      // For scoped storage (Android 10+), MANAGE_EXTERNAL_STORAGE might be needed
-      // for broad access, but WRITE_EXTERNAL_STORAGE/READ_EXTERNAL_STORAGE
-      // might suffice for Downloads or user-picked locations via file_picker.
-      // Let's stick to basic storage permission first.
-      // Android 13+ uses specific media permissions. File picker handles this better.
-      // For saving directly to Downloads without picker, need storage perm.
-
-      if (!status.isGranted) {
-        status = await Permission.storage.request();
-      }
-      // Android 11+ might require manage external storage for direct writes
-      // to arbitrary paths, but file_picker avoids this need mostly.
-      // If saving directly to Downloads:
-      // var storagePerm = await Permission.manageExternalStorage.request();
-      // if (!storagePerm.isGranted) {
-      //    print("Manage External Storage permission denied.");
-      //    return false;
-      // }
-
-      if (!status.isGranted) {
-        print("Storage permission denied.");
-        // Consider showing a message to the user explaining why permission is needed
-        return false;
-      }
+    // Permissions are primarily needed on Android for external storage access
+    if (!Platform.isAndroid) {
+      print(
+        "Platform is not Android, assuming permissions are handled by picker.",
+      );
+      return true; // No explicit permissions needed usually on iOS for picker
     }
-    // iOS generally doesn't require explicit permission for user-picked files
-    // or standard directories like Documents/Downloads accessed via file picker.
-    return true;
+
+    print("Checking storage permission status on Android...");
+    PermissionStatus status = await Permission.storage.status;
+    print("Initial storage permission status: $status");
+
+    // If not granted, request it
+    if (!status.isGranted) {
+      print("Storage permission not granted. Requesting...");
+      status = await Permission.storage.request();
+      print("Permission status after request: $status");
+    }
+
+    // Handle the outcome
+    if (status.isGranted) {
+      print("Storage permission granted.");
+      return true;
+    } else if (status.isPermanentlyDenied) {
+      print(
+        "Storage permission permanently denied. Asking user to open settings.",
+      );
+      // Optionally show a dialog explaining *why* permission is needed before opening settings
+      await openAppSettings(); // Opens the app's settings page
+      return false; // Return false as permission is still not granted *now*
+    } else if (status.isDenied) {
+      print("Storage permission denied by user.");
+      // Optionally show a dialog explaining why permission is needed
+      return false;
+    } else {
+      // Handle other potential statuses like restricted
+      print("Storage permission has an unexpected status: $status");
+      return false;
+    }
   }
 
   // --- Backup Database ---
@@ -107,10 +116,10 @@ class BackupRestoreService {
   Future<bool> restoreDatabase() async {
     // Permissions might be needed if reading from a restricted location,
     // but file_picker often handles this. Let's assume picker works.
-    // if (!await _requestPermissions()) {
-    //   print("Restore failed: Permissions not granted.");
-    //   return false;
-    // }
+    if (!await _requestPermissions()) {
+      print("Restore failed: Permissions not granted.");
+      return false;
+    }
 
     try {
       // --- Select Backup File ---
@@ -140,6 +149,7 @@ class BackupRestoreService {
         print(
           "Warning: Selected file '$backupFilePath' might not be a valid database backup (.db).",
         );
+        return false;
         // Optionally, ask for confirmation here before proceeding
       }
 

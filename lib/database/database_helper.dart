@@ -25,11 +25,11 @@ class DatabaseHelper {
   static String? _databasePath;
   DatabaseHelper._init();
 
-  // Future<Database> get database async {
-  //   if (_database != null) return _database!;
-  //   _database = await _initDB(_dbName);
-  //   return _database!;
-  // }
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB(_dbName);
+    return _database!;
+  }
 
   Future<Database> _initDB(String dbName) async {
     // --- Required for sqlite3_flutter_libs ---
@@ -240,48 +240,6 @@ class DatabaseHelper {
   Future<String?> getCurrentDatabasePath() async {
     // Ensures the path calculation logic runs if not already done.
     return await _getDatabasePath();
-  }
-
-  Future<Database> get database async {
-    if (_database != null && !_isDbClosed(_database!)) return _database!;
-    _database = await _initDB(_dbName);
-    return _database!;
-  }
-
-  bool _isDbClosed(Database db) {
-    try {
-      // Attempt a harmless operation like getting the user version
-      db.userVersion;
-      return false; // If it succeeds, it's not closed/disposed
-    } catch (e) {
-      // If it throws, assume it's closed/disposed
-      print("Database appears closed: $e");
-      return true;
-    }
-  }
-
-  // --- Helper for mapping ResultSet to List<Model> ---
-  Future<void> close() async {
-    // Use the stored instance variable
-    final db = _database;
-    if (db != null) {
-      if (!_isDbClosed(db)) {
-        print("Closing database connection...");
-        try {
-          db.dispose();
-          print("Database disposed.");
-        } catch (e) {
-          print("Error disposing database: $e");
-          // May already be disposed or error during dispose
-        }
-      } else {
-        print("Database connection already closed/disposed.");
-      }
-      _database = null; // Clear the instance variable
-      _databasePath = null; // Also clear cached path on close if desired
-    } else {
-      print("Attempted to close database, but instance was null.");
-    }
   }
 
   List<T> _mapResultSet<T>(
@@ -867,14 +825,14 @@ class DatabaseHelper {
     return paymentsMap;
   }
 
-  // // Close DB
-  // Future<void> close() async {
-  //   final db = _database; // Get current instance
-  //   if (db != null) {
-  //     print("Closing database...");
-  //     db.dispose(); // Use dispose() for sqlite3
-  //     _database = null; // Force re-initialization on next access
-  //     print("Database closed.");
-  //   }
-  // }
+  // Close DB
+  Future<void> close() async {
+    final db = _database; // Get current instance
+    if (db != null) {
+      print("Closing database...");
+      db.dispose(); // Use dispose() for sqlite3
+      _database = null; // Force re-initialization on next access
+      print("Database closed.");
+    }
+  }
 }
