@@ -1,6 +1,5 @@
 // import 'dart:async';
 // import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart' as sq;
 import 'dart:async';
 import 'dart:io'; // Required for Directory/File operations
 
@@ -37,11 +36,6 @@ class DatabaseHelper {
     final dbPath = await getApplicationDocumentsDirectory();
     var path = p.join(dbPath.path, dbName);
     print("Database path: $path"); // Log path for debugging
-    if (Platform.isAndroid) {
-      final dbPath2 = await sq.getDatabasesPath();
-      path = p.join(dbPath2, dbName);
-      print("Databas Android: $path");
-    }
 
     _databasePath = path;
     // Log path for debugging
@@ -220,17 +214,6 @@ class DatabaseHelper {
     // Using getApplicationDocumentsDirectory is usually more standard.
     // If you keep this, ensure consistency. For simplicity, let's prefer
     // getApplicationDocumentsDirectory for now unless you have a strong reason.
-    if (Platform.isAndroid) {
-      try {
-        final dbPathAndroid = await sq.getDatabasesPath();
-        path = p.join(dbPathAndroid, _dbName);
-        print("Database Android-specific path: $path");
-      } catch (e) {
-        print("Could not get sqflite path, using documents dir: $e");
-        // Fallback to documents directory path if sqflite path fails
-        path = p.join(documentsDirectory.path, _dbName);
-      }
-    }
 
     print("Resolved Database path: $path");
     _databasePath = path;

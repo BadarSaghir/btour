@@ -1,4 +1,4 @@
-package com.example.tour_expense_app
+package com.developonetwork.btour
 
 import io.flutter.embedding.android.FlutterActivity
 

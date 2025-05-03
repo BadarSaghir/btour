@@ -5,51 +5,64 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart'; // For sharing backup
+import 'package:device_info_plus/device_info_plus.dart';
 
 class BackupRestoreService {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
+  Future<int> _getAndroidSdkInt() async {
+    if (Platform.isAndroid) {
+      final deviceInfo = await DeviceInfoPlugin().androidInfo;
+      return deviceInfo.version.sdkInt;
+    }
+    return 0; // Return 0 if not Android
+  }
+
   // --- Request Storage Permissions ---
   // --- Request Storage Permissions (Enhanced) ---
   Future<bool> _requestPermissions() async {
-    // Permissions are primarily needed on Android for external storage access
     if (!Platform.isAndroid) {
-      print(
-        "Platform is not Android, assuming permissions are handled by picker.",
-      );
-      return true; // No explicit permissions needed usually on iOS for picker
-    }
-
-    print("Checking storage permission status on Android...");
-    PermissionStatus status = await Permission.storage.status;
-    print("Initial storage permission status: $status");
-
-    // If not granted, request it
-    if (!status.isGranted) {
-      print("Storage permission not granted. Requesting...");
-      status = await Permission.storage.request();
-      print("Permission status after request: $status");
-    }
-
-    // Handle the outcome
-    if (status.isGranted) {
-      print("Storage permission granted.");
+      print("Platform is not Android, skipping explicit permission request.");
       return true;
-    } else if (status.isPermanentlyDenied) {
+    }
+
+    final sdkInt = await _getAndroidSdkInt();
+
+    // Only request legacy storage permissions on Android < 13 (API 33)
+    // Even then, SAF via file_picker is often preferred.
+    // For API 30, 31, 32 WRITE_EXTERNAL_STORAGE has no effect.
+    // For API 29 (Android 10), WRITE_EXTERNAL_STORAGE needed requestLegacyExternalStorage.
+    // Let's simplify: We rely on FilePicker's SAF mechanism for >= 10/11.
+    // Only request for Android 9 (API 28) and below if absolutely needed.
+    if (sdkInt < 29) {
+      // Android 9 (Pie) or lower
       print(
-        "Storage permission permanently denied. Asking user to open settings.",
+        "Android version ($sdkInt) < 29. Checking legacy storage permission.",
       );
-      // Optionally show a dialog explaining *why* permission is needed before opening settings
-      await openAppSettings(); // Opens the app's settings page
-      return false; // Return false as permission is still not granted *now*
-    } else if (status.isDenied) {
-      print("Storage permission denied by user.");
-      // Optionally show a dialog explaining why permission is needed
-      return false;
+      PermissionStatus status = await Permission.storage.status;
+      print("Initial legacy storage permission status: $status");
+      if (!status.isGranted) {
+        print("Requesting legacy storage permission...");
+        status = await Permission.storage.request();
+        print("Permission status after request: $status");
+      }
+      if (!status.isGranted) {
+        print("Legacy Storage permission denied.");
+        // Guide to settings if permanently denied
+        if (status.isPermanentlyDenied) {
+          await openAppSettings();
+        }
+        return false;
+      }
+      print("Legacy Storage permission granted.");
+      return true;
     } else {
-      // Handle other potential statuses like restricted
-      print("Storage permission has an unexpected status: $status");
-      return false;
+      // On Android 10+ (API 29+), rely on FilePicker using SAF.
+      // No explicit broad storage permission needed or effective for this task.
+      print(
+        "Android version ($sdkInt) >= 29. Relying on Storage Access Framework via FilePicker.",
+      );
+      return true;
     }
   }
 
@@ -57,10 +70,10 @@ class BackupRestoreService {
   /// Creates a backup of the database file.
   /// Returns the path of the backup file if successful, null otherwise.
   Future<String?> backupDatabase() async {
-    if (!await _requestPermissions()) {
-      print("Backup failed: Permissions not granted.");
-      return null;
-    }
+    // if (!await _requestPermissions()) {
+    //   print("Backup failed: Permissions not granted.");
+    //   return null;
+    // }
 
     try {
       final dbPath = await _dbHelper.getCurrentDatabasePath();
@@ -116,16 +129,17 @@ class BackupRestoreService {
   Future<bool> restoreDatabase() async {
     // Permissions might be needed if reading from a restricted location,
     // but file_picker often handles this. Let's assume picker works.
-    if (!await _requestPermissions()) {
-      print("Restore failed: Permissions not granted.");
-      return false;
-    }
+    // if (!await _requestPermissions()) {
+    //   print("Restore failed: Permissions not granted.");
+    //   return false;
+    // }
 
     try {
       // --- Select Backup File ---
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.any, // Allow any file, user needs to pick correctly
         // Or filter: type: FileType.custom, allowedExtensions: ['db'],
+        allowedExtensions: ['db'],
         dialogTitle: 'Select Database Backup File (.db)',
       );
 
@@ -198,9 +212,9 @@ class BackupRestoreService {
   Future<void> shareBackupFile(String filePath) async {
     try {
       final file = XFile(filePath); // share_plus uses XFile
-      final result = await Share.shareXFiles([
-        file,
-      ], text: 'Database Backup (${p.basename(filePath)})');
+      final params = ShareParams(text: 'Db Backup of tour', files: [file]);
+
+      final result = await SharePlus.instance.share(params);
 
       if (result.status == ShareResultStatus.success) {
         print('Backup file shared successfully.');
