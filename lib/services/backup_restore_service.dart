@@ -137,34 +137,48 @@ class BackupRestoreService {
   }
 
   // --- Restore Database --- (Should generally work as `pickFiles` uses SAF for READ)
+
+  // --- Restore Database (Revised with explicit extension check) ---
   Future<bool> restoreDatabase() async {
-    // No explicit permission request needed here as pickFiles uses SAF for read access
     try {
-      // --- Select Backup File ---
       print("Launching file picker for restore...");
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowedExtensions: ["db"],
+        allowedExtensions: ["db"], // Filter suggestion for the picker
         type: FileType.custom,
         dialogTitle: 'Select Database Backup File (.db)',
         allowMultiple: false,
       );
-      final filePath = result?.files.single.path;
 
-      if (result == null || filePath == null) {
+      // Check if user cancelled
+      if (result == null || result.files.single.path == null) {
         print("Restore cancelled by user or file path missing.");
         return false;
       }
 
-      final backupFilePath = filePath;
-      print("User selected backup file: $backupFilePath");
+      final backupFilePath = result.files.single.path!;
+      print("User selected potential backup file: $backupFilePath");
+
+      // ----- !!!!! ADD THIS CHECK !!!!! -----
+      if (!backupFilePath.toLowerCase().endsWith('.db')) {
+        print(
+          "Restore failed: Selected file is not a .db file: $backupFilePath",
+        );
+        // Consider showing a user-friendly error message in your UI here
+        // Example: _showSnackbar("Selected file must have a .db extension.", isError: true);
+        return false;
+      }
+      // ----- End of added check -----
+
       final backupFile = File(backupFilePath);
 
+      // Check if the selected file exists (might be redundant if picker is reliable, but safe)
       if (!await backupFile.exists()) {
         print(
-          "Restore failed: Selected backup file does not exist: $backupFilePath",
+          "Restore failed: Selected backup file does not exist (post-selection check): $backupFilePath",
         );
         return false;
       }
+      print("Selected file exists and has .db extension.");
 
       // --- Get Current Database Path ---
       final currentDbPath = await _dbHelper.getCurrentDatabasePath();
@@ -184,18 +198,36 @@ class BackupRestoreService {
       print("Attempting to restore from: $backupFilePath");
       print("Replacing current DB at: $currentDbPath");
 
-      // Safer: Delete old, then copy new.
-      if (await currentDbFile.exists()) {
-        print("Deleting old database file...");
-        await currentDbFile.delete();
-        print("Old database file deleted.");
+      // Delete old file first (wrapped in try/catch)
+      try {
+        if (await currentDbFile.exists()) {
+          print("Deleting old database file...");
+          await currentDbFile.delete();
+          print("Old database file deleted.");
+        }
+      } catch (e) {
+        print("Error deleting old database file '$currentDbPath': $e");
+        // Stop if deletion fails to avoid potential issues
+        return false;
       }
 
-      print("Copying backup file to database location...");
-      // This copy operation *should* work because the app has permission
-      // to write to its own internal directory (currentDbPath).
-      await backupFile.copy(currentDbPath);
-      print("Backup file copied successfully.");
+      // Copy the backup file (wrapped in try/catch)
+      try {
+        print("Copying backup file to database location...");
+        await backupFile.copy(currentDbPath);
+        print("Backup file copied successfully.");
+      } catch (e) {
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        print(
+          "CRITICAL ERROR copying backup file '$backupFilePath' to '$currentDbPath': $e",
+        );
+        print(
+          "Check permissions for reading source and writing destination. Check if source file is valid.",
+        );
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        // This is a critical failure point.
+        return false; // Stop if copy fails
+      }
 
       print("Database restore successful from: $backupFilePath");
       print(
@@ -203,23 +235,23 @@ class BackupRestoreService {
       );
       return true; // Success
     } catch (e) {
-      print("Error during database restore: $e");
-      // Ensure DB is closed if error occurs mid-way? Restart is usually sufficient.
+      // Catch any other unexpected errors during the process
+      print("Overall error during database restore process: $e");
       return false;
     }
   }
 
-  // --- Share Backup File (Helper) --- (Keep as is)
+  // --- Share Backup File (Helper) ---
   Future<void> shareBackupFile(String filePath) async {
     try {
       final file = XFile(filePath); // share_plus uses XFile
       final params = ShareParams(
-  text: 'Database Backup (${p.basename(filePath)})',
-  files: [file], 
-  
-);
+        text: 'Database Backup (${p.basename(filePath)})',
+        files: [file],
+      );
 
-    final result = await SharePlus.instance.share(params);
+      // Use the static method from the SharePlus instance directly
+      final result = await SharePlus.instance.share(params);
 
       if (result.status == ShareResultStatus.success) {
         print('Backup file shared successfully.');
