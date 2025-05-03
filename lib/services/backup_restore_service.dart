@@ -143,9 +143,9 @@ class BackupRestoreService {
     try {
       print("Launching file picker for restore...");
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowedExtensions: ["db"], // Filter suggestion for the picker
+        allowedExtensions: ["db"], // <-- CORRECTED: No dot before 'db'
         type: FileType.custom,
-        dialogTitle: 'Select Database Backup File (.db)',
+        dialogTitle: 'Select Database Backup File (db)',
         allowMultiple: false,
       );
 
