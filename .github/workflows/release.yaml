@@ -46,7 +46,7 @@ jobs:
       - name: Package macOS App
         run: |
           cd build/macos/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent btour.app btour-macos-${{ steps.tag.outputs.version }}.zip
+          ditto -c -k --sequesterRsrc --keepParent btour.app btour-macos.zip
       
       # Upload Artifacts
       - name: Upload Android APK
@@ -59,7 +59,7 @@ jobs:
       
       - name: Upload macOS App
         uses: actions/upload-artifact@v4
-        with: { name: macos-app, path: build/macos/Build/Products/Release/btour-macos-${{ steps.tag.outputs.version }}.zip }
+        with: { name: macos-app, path: build/macos/Build/Products/Release/btour-macos.zip }
 
   build_linux:
     runs-on: ubuntu-latest
@@ -85,11 +85,11 @@ jobs:
       - name: Package Linux Build
         run: |
           cd build/linux/x64/release/bundle
-          zip -r ../../../../btour-linux-${{ needs.build_macos_android.outputs.tag_version }}.zip .
+          zip -r ../../../../btour-linux.zip .
       
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
-        with: { name: linux-app, path: btour-linux-${{ needs.build_macos_android.outputs.tag_version }}.zip }
+        with: { name: linux-app, path: btour-linux.zip }
 
   build_windows:
     runs-on: windows-latest
@@ -110,11 +110,11 @@ jobs:
       - name: Package Windows Build
         run: |
           cd build/windows/runner/Release
-          Compress-Archive -Path * -DestinationPath ../../../../btour-windows-${{ needs.build_macos_android.outputs.tag_version }}.zip
+          Compress-Archive -Path * -DestinationPath ../../../../btour-windows.zip
       
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
-        with: { name: windows-app, path: btour-windows-${{ needs.build_macos_android.outputs.tag_version }}.zip }
+        with: { name: windows-app, path: btour-windows.zip }
 
   create_release:
     runs-on: ubuntu-latest
@@ -138,8 +138,8 @@ jobs:
           files: |
             android-apk/app-release.apk
             android-aab/app-release.aab
-            macos-app/btour-macos-${{ needs.build_macos_android.outputs.tag_version }}.zip
-            linux-app/btour-linux-${{ needs.build_macos_android.outputs.tag_version }}.zip
-            windows-app/btour-windows-${{ needs.build_macos_android.outputs.tag_version }}.zip
+            macos-app/btour-macos.zip
+            linux-app/btour-linux.zip
+            windows-app/btour-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
