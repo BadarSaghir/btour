@@ -151,11 +151,11 @@ jobs:
           name: Release ${{ steps.tag.outputs.version }} # Use tag from needs
           body: |
             Multi-platform release for version ${{steps.tag.outputs.version }}
-            Includes builds for:
-            - Android (APK/AAB)
-            - macOS
-            - Linux
-            - Windows
+            # Highlight
+            - Added Chart Support in details of tour
+            - Add filter support for search in  Tour search
+            - Add Filter support for better  UX
+            - Add Sorting support for Tours List
           files: |
             android-apk/app-release.apk
             android-aab/app-release.aab
