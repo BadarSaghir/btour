@@ -143,9 +143,9 @@ class BackupRestoreService {
     try {
       print("Launching file picker for restore...");
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowedExtensions: ["db"], // <-- CORRECTED: No dot before 'db'
-        type: FileType.custom,
-        dialogTitle: 'Select Database Backup File (db)',
+        // allowedExtensions: ["db"], // <-- CORRECTED: No dot before 'db'
+        // type: FileType.custom,
+        dialogTitle: 'Select Database Backup ',
         allowMultiple: false,
       );
 
@@ -243,23 +243,23 @@ class BackupRestoreService {
 
   // --- Share Backup File (Helper) ---
   Future<void> shareBackupFile(String filePath) async {
-    try {
-      final file = XFile(filePath); // share_plus uses XFile
-      final params = ShareParams(
-        text: 'Database Backup (${p.basename(filePath)})',
-        files: [file],
-      );
+    // try {
+    //   final file = XFile(filePath); // share_plus uses XFile
+    //   final params = ShareParams(
+    //     text: 'Database Backup (${p.basename(filePath)})',
+    //     files: [file],
+    //   );
 
-      // Use the static method from the SharePlus instance directly
-      final result = await SharePlus.instance.share(params);
+    //   // Use the static method from the SharePlus instance directly
+    //   final result = await SharePlus.instance.share(params);
 
-      if (result.status == ShareResultStatus.success) {
-        print('Backup file shared successfully.');
-      } else {
-        print('Sharing failed/dismissed: ${result.status}');
-      }
-    } catch (e) {
-      print('Error sharing file: $e');
-    }
+    //   if (result.status == ShareResultStatus.success) {
+    //     print('Backup file shared successfully.');
+    //   } else {
+    //     print('Sharing failed/dismissed: ${result.status}');
+    //   }
+    // } catch (e) {
+    //   print('Error sharing file: $e');
+    // }
   }
 }

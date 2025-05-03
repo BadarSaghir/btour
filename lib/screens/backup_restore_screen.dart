@@ -36,14 +36,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       backupPath = await _backupRestoreService.backupDatabase();
       if (backupPath != null) {
         setState(() {
-          _feedbackMessage = 'Backup successful!\nSaved to: $backupPath';
+          _feedbackMessage = 'Backup successful!';
         });
         _showSnackbar('Backup successful!');
         // Ask user if they want to share the file
-        _askToShare(backupPath);
+        // _askToShare(backupPath);
       } else {
         setState(() {
-          _feedbackMessage = 'Backup failed or cancelled. Check logs.';
+          _feedbackMessage = 'Backup failed or cancelled.';
         });
         _showSnackbar('Backup failed or cancelled.', isError: true);
       }
