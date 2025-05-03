@@ -127,8 +127,11 @@ jobs:
 
   # --- Job to create the Release (runs after ALL builds) ---
   create_release:
+  
     runs-on: ubuntu-latest
     needs: [build_macos_android, build_linux, build_windows]
+    permissions:
+      contents: write # Allow creating releases, uploading assets etc.
     steps:
       # Get version tag using needs context
       - name: Get version tag from needs
@@ -159,5 +162,5 @@ jobs:
             macos-app/btour-macos.zip
             linux-app/btour-linux.zip
             windows-app/btour-windows.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # env:
+        #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
