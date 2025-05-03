@@ -213,9 +213,13 @@ class BackupRestoreService {
   Future<void> shareBackupFile(String filePath) async {
     try {
       final file = XFile(filePath); // share_plus uses XFile
-      final result = await Share.shareXFiles([
-        file,
-      ], text: 'Database Backup (${p.basename(filePath)})');
+      final params = ShareParams(
+  text: 'Database Backup (${p.basename(filePath)})',
+  files: [file], 
+  
+);
+
+    final result = await SharePlus.instance.share(params);
 
       if (result.status == ShareResultStatus.success) {
         print('Backup file shared successfully.');
