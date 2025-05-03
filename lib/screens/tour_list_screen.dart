@@ -134,7 +134,10 @@ class _TourListScreenState extends State<TourListScreen> {
     final Color iconColor =
         theme.appBarTheme.iconTheme?.color ??
         (isDarkAppBar ? Colors.white : Colors.black87);
-    final Color searchTextColor = isDarkAppBar ? Colors.white : Colors.black87;
+    final Color searchTextColor =
+        isDarkAppBar
+            ? const Color.fromARGB(255, 167, 173, 247)
+            : Colors.black87;
     final Color searchHintColor =
         isDarkAppBar ? Colors.white70 : Colors.black54;
 
@@ -260,63 +263,69 @@ class _TourListScreenState extends State<TourListScreen> {
       'Ended': TourStatus.Ended,
     };
 
-    return Material(
-      // Add Material for elevation and background color
-      elevation: 1.0, // Subtle elevation
-      color: theme.cardColor, // Use card color for background
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 8.0),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 4.0,
-          ), // Padding for scroll ends
-          child: Row(
-            children:
-                filters.entries.map((entry) {
-                  final label = entry.key;
-                  final statusValue = entry.value;
-                  final isSelected = _selectedStatusFilter == statusValue;
+    return Container(
+      margin: EdgeInsets.only(top: 8),
+      child: Material(
+        // Add Material for elevation and background color
+        elevation: 1.0, // Subtle elevation
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5.0,
-                    ), // Spacing between chips
-                    child: FilterChip(
-                      // Sticking with FilterChip for deselection behavior
-                      label: Text(label),
-                      selected: isSelected,
-                      onSelected: (bool selected) {
-                        setState(() {
-                          _selectedStatusFilter = selected ? statusValue : null;
-                        });
-                      },
-                      shape: StadiumBorder(
-                        side: BorderSide(
+        color: theme.indicatorColor, // Use card color for background
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+          // margin: const EdgeInsets.only(top: 54),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 4.0,
+            ), // Padding for scroll ends
+            child: Row(
+              children:
+                  filters.entries.map((entry) {
+                    final label = entry.key;
+                    final statusValue = entry.value;
+                    final isSelected = _selectedStatusFilter == statusValue;
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5.0,
+                      ), // Spacing between chips
+                      child: FilterChip(
+                        // Sticking with FilterChip for deselection behavior
+                        label: Text(label),
+                        selected: isSelected,
+                        onSelected: (bool selected) {
+                          setState(() {
+                            _selectedStatusFilter =
+                                selected ? statusValue : null;
+                          });
+                        },
+                        shape: StadiumBorder(
+                          side: BorderSide(
+                            color:
+                                isSelected
+                                    ? theme.primaryColor
+                                    : Colors.grey.shade300,
+                            width: isSelected ? 1.5 : 1.0,
+                          ),
+                        ),
+                        selectedColor: theme.primaryColor.withOpacity(0.15),
+                        checkmarkColor: theme.primaryColor,
+                        backgroundColor:
+                            theme
+                                .canvasColor, // Use canvas color for unselected background
+                        labelStyle: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
                           color:
                               isSelected
-                                  ? theme.primaryColor
-                                  : Colors.grey.shade300,
-                          width: isSelected ? 1.5 : 1.0,
+                                  ? theme.primaryColorDark
+                                  : theme.textTheme.bodyLarge?.color,
                         ),
+                        visualDensity: VisualDensity.compact,
                       ),
-                      selectedColor: theme.primaryColor.withOpacity(0.15),
-                      checkmarkColor: theme.primaryColor,
-                      backgroundColor:
-                          theme
-                              .canvasColor, // Use canvas color for unselected background
-                      labelStyle: TextStyle(
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
-                        color:
-                            isSelected
-                                ? theme.primaryColorDark
-                                : theme.textTheme.bodyLarge?.color,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+            ),
           ),
         ),
       ),
