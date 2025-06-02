@@ -72,23 +72,12 @@
 
 ---
 
-## 🗂️ Folder Structure (Planned)
-
-lib/
-├── models/ # Data models (Tour, Person, Expense, etc.)
-├── screens/ # UI screens (TourList, TourDetail, Forms)
-├── widgets/ # Reusable UI components
-├── db/ # Sqflite DB helpers and DAOs
-├── providers/ # State management (e.g., Riverpod/Provider)
-└── main.dart # Entry point
-
 
 ---
 
 ## 🛠️ Tech Stack
 
 - **Flutter** – UI framework
-- **Sqflite** – Local persistent storage
 - **Dart** – Programming language
 - **Material Design** – UI components and behavior
 
