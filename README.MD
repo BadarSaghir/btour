@@ -1,6 +1,6 @@
 # 🧳 Btour – Tour Expense Tracker
 
-**Btour** is a simple yet powerful Flutter app to manage shared expenses for group tours and trips. Track expenses, manage participants, and generate transparent reports to settle costs fairly.
+**Btour** is a simple yet powerful app to manage shared expenses for group tours and trips. Track expenses, manage participants, and generate transparent reports to settle costs fairly.
 
 ---
 
