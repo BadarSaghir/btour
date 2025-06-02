@@ -44,7 +44,7 @@
   - Helps track debt settlement among group members
 
 ### 💾 Offline Persistence
-- All data is stored **locally** using `sqflite`
+- All data is stored **locally**
 - No internet required
 
 ### 📱 User Interface
