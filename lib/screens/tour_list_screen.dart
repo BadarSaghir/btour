@@ -93,8 +93,8 @@ class _TourListScreenState extends State<TourListScreen> {
       // Dismiss keyboard when tapping outside fields
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.4,
+        backgroundColor: theme.colorScheme.surfaceBright.withValues(
+          alpha: 1,
         ), // Subtle background
         appBar: _buildAppBar(context, theme),
         body: Column(
@@ -269,7 +269,7 @@ class _TourListScreenState extends State<TourListScreen> {
         // Add Material for elevation and background color
         elevation: 1.0, // Subtle elevation
 
-        color: theme.indicatorColor, // Use card color for background
+        color: theme.canvasColor, // Use card color for background
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
           // margin: const EdgeInsets.only(top: 54),
