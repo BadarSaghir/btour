@@ -1,20 +1,21 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
 cff-version: 1.2.0
-title: Your Title Here
-message: >-
-  Your message here. 
-  You can use multiple lines.
-type: 
+title: btour
+message: Application use to ease the tour
+type: software
 authors:
-  - given-names: Your Given Names
-    family-names: Your Family Names
-    email: you@example.com
-    orcid: 'https://orcid.org/0000-0000-0000-0000'
+  - given-names: Sardar Badar
+    family-names: Badar
+    email: dataentrybadar@gmail.com
 identifiers:
   - type: url
-    value: https://example.com
-    description: Your description here
-repository-code: https://github.com/joelparkerhenderson/github-special-files-and-paths/
-abstract: >-
-  Your abstract here.
-  You can use multiple lines.
-license: GPL-2.0+
+    value: 'https://github.com/BadarSaghir/btour'
+    description: Application Software
+repository-code: 'https://github.com/BadarSaghir/btour'
+repository-artifact: 'https://github.com/BadarSaghir/btour/releases'
+abstract: "\U0001F9F3 Btour – Tour Expense Tracker\nBtour is a simple yet powerful Flutter app to manage shared expenses for group tours and trips. Track expenses, manage participants, and generate transparent reports to settle costs fairly.\n\n\n"
+keywords:
+  - btour
+license: GPL-3.0
